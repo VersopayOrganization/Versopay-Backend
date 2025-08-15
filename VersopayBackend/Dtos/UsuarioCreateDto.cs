@@ -10,6 +10,7 @@ namespace VersopayBackend.Dtos
         [Required, MinLength(6)] public string Senha { get; set; } = default!;
         [Required, MinLength(6)] public string ConfirmarSenha { get; set; } = default!;
         [Required] public TipoCadastro TipoCadastro { get; set; }
+
         [Required] public string CpfCnpj { get; set; } = default!;
         [MaxLength(80)] public string? Instagram { get; set; }
         [MaxLength(20)] public string? Telefone { get; set; }
