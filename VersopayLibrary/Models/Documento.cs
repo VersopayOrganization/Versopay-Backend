@@ -29,6 +29,18 @@ namespace VersopayLibrary.Models
         [MaxLength(260)]
         public string? CartaoCnpjCaminho { get; set; }
 
+        // --- Status por parte ---
+        public StatusDocumento FrenteRgStatus { get; set; } = StatusDocumento.Pendente;
+        public StatusDocumento VersoRgStatus { get; set; } = StatusDocumento.Pendente;
+        public StatusDocumento SelfieDocStatus { get; set; } = StatusDocumento.Pendente;
+        public StatusDocumento CartaoCnpjStatus { get; set; } = StatusDocumento.Pendente;
+
+        // --- Assinatura (hash) por parte ---
+        [MaxLength(64)] public string? FrenteRgAssinaturaSha256 { get; set; }
+        [MaxLength(64)] public string? VersoRgAssinaturaSha256 { get; set; }
+        [MaxLength(64)] public string? SelfieDocAssinaturaSha256 { get; set; }
+        [MaxLength(64)] public string? CartaoCnpjAssinaturaSha256 { get; set; }
+
         public DateTime DataAtualizacao { get; set; } = DateTime.UtcNow;
 
         // Navegação

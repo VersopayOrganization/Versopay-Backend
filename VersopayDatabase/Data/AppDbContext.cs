@@ -16,11 +16,8 @@ namespace VersopayDatabase.Data
             u.Property(x => x.Email).HasMaxLength(160).IsRequired();
             u.Property(x => x.SenhaHash).IsRequired();
             u.Property(x => x.CpfCnpj).HasMaxLength(14).IsRequired();
-
             u.HasIndex(x => x.Email).IsUnique();
             u.HasIndex(x => x.CpfCnpj).IsUnique();
-
-            // SQL Server: LEN; (se usar SQLite, troque por LENGTH)
             u.ToTable(t => t.HasCheckConstraint(
                 "CK_Usuarios_CpfCnpj_Tipo",
                 "( (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14) )"
@@ -33,7 +30,16 @@ namespace VersopayDatabase.Data
             d.Property(x => x.SelfieDocCaminho).HasMaxLength(260);
             d.Property(x => x.CartaoCnpjCaminho).HasMaxLength(260);
 
-            // Relacionamento 1:1 (PK compartilhada) + cascade
+            d.Property(x => x.FrenteRgStatus).HasDefaultValue(StatusDocumento.Pendente);
+            d.Property(x => x.VersoRgStatus).HasDefaultValue(StatusDocumento.Pendente);
+            d.Property(x => x.SelfieDocStatus).HasDefaultValue(StatusDocumento.Pendente);
+            d.Property(x => x.CartaoCnpjStatus).HasDefaultValue(StatusDocumento.Pendente);
+
+            d.Property(x => x.FrenteRgAssinaturaSha256).HasMaxLength(64);
+            d.Property(x => x.VersoRgAssinaturaSha256).HasMaxLength(64);
+            d.Property(x => x.SelfieDocAssinaturaSha256).HasMaxLength(64);
+            d.Property(x => x.CartaoCnpjAssinaturaSha256).HasMaxLength(64);
+
             u.HasOne(x => x.Documento)
              .WithOne(x => x.Usuario)
              .HasForeignKey<Documento>(x => x.UsuarioId)
