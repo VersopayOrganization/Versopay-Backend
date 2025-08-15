@@ -1,0 +1,150 @@
+############################
+# IDEs e arquivos de usuário
+############################
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser          # Visual Studio 2019+
+*.DotSettings.user
+*.orig             # conflitos de merge resolvidos
+
+# VS Code (opcional: comite só se quiser compartilhar configs)
+.vscode/
+
+############################
+# Build / artefatos locais
+############################
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Oo]ut/
+artifacts/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.gpState
+*.cache
+*.pdb
+*.mdb
+*.ipa
+*.apk
+*.aab
+*.tmp
+*.tmp.*
+*.ilk
+
+############################
+# Publicação / Docker
+############################
+# Saídas de publish
+**/publish/
+**/AppPackages/
+**/Properties/PublishProfiles/
+
+# Docker (gerados por VS)
+**/obj/**/docker/*
+**/obj/Docker/publish/*
+**/obj/**/PubTmp/*
+
+############################
+# Testes e benchmarks
+############################
+TestResults/
+*.coverage
+*.coveragexml
+.coverage/
+coverage/
+coverage-*/
+coverage.*.json
+coverage.*.xml
+lcov.info
+BenchmarkDotNet.Artifacts/
+
+############################
+# NuGet
+############################
+# (Com PackageReference, pacotes ficam no cache global do usuário)
+packages/
+*.nupkg
+*.snupkg
+# Travas antigas
+project.lock.json
+project.assets.json
+
+############################
+# Configs sensíveis / segredos
+############################
+# Mantenha appsettings.json versionado, mas ignore variantes locais
+appsettings.*.Local.json
+appsettings.*.local.json
+appsettings.Development.local.json
+secrets.json
+*.pfx
+*.p12
+*.p7b
+*.cer
+*.key
+*.pem
+*.crt
+*.der
+*.sas.json            # chaves/segredos de serviços
+
+# Variáveis de ambiente locais
+.env
+.env.*.local
+
+############################
+# Bancos de dados locais
+############################
+*.db
+*.sqlite
+*.sqlite3
+*.mdf
+*.ldf
+
+############################
+# Front-end (caso exista ClientApp)
+############################
+node_modules/
+**/ClientApp/node_modules/
+**/ClientApp/dist/
+**/ClientApp/build/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.browserslistrc.lock
+
+############################
+# Ferramentas/Analisadores
+############################
+_ReSharper.Caches/
+StyleCopReport.xml
+.fxcop
+sonarqube-out/
+.SonarScanner/
+
+############################
+# SO / Editor / Diversos
+############################
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Arquivos de lock de editores
+*.swp
+*.swo

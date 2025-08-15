@@ -1,0 +1,18 @@
+﻿using VersopayLibrary.Models;
+
+namespace VersopayBackend.Dtos
+{
+    public class UsuarioResponseDto
+    {
+        public Guid Id { get; set; }
+        public string Nome { get; set; } = default!;
+        public string Email { get; set; } = default!;
+        public TipoCadastro TipoCadastro { get; set; }
+        public string? Instagram { get; set; }
+        public string? Telefone { get; set; }
+        public DateTime CreatedAt { get; set; }
+
+        public string CpfCnpj { get; set; } = default!;       // só dígitos
+        public string? DocumentoFormatado { get; set; }         // 000.000.000-00 / 00.000.000/0000-00
+    }
+}
