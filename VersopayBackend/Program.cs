@@ -1,13 +1,18 @@
+using Azure.Storage.Blobs;
 using Microsoft.EntityFrameworkCore;
+using VersopayBackend.Services;
 using VersopayDatabase.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// DB
 var conn = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlServer(conn)
-//  opt.UseSqlite(conn)
-);
+builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlServer(conn));
+
+// Blob (usa ConnectionString com Account Key)
+var blobConn = builder.Configuration.GetConnectionString("BlobStorage");
+builder.Services.AddSingleton(new BlobServiceClient(blobConn));
+builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

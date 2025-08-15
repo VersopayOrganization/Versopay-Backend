@@ -13,23 +13,23 @@ namespace VersopayLibrary.Models
     {
         // PK = FK para Usuario (relacionamento 1:1)
         [Key]
-        public Guid UsuarioId { get; set; }
+        public int UsuarioId { get; set; }
 
         // Caminhos relativos (ex.: "uploads/{usuarioId}/frente.jpg")
         [MaxLength(260)]
-        public string? FrenteRgCnhPath { get; set; }
+        public string? FrenteRgCaminho { get; set; }
 
         [MaxLength(260)]
-        public string? VersoRgCnhPath { get; set; }
+        public string? VersoRgCaminho { get; set; }
 
         [MaxLength(260)]
-        public string? SelfieComDocPath { get; set; }
+        public string? SelfieDocCaminho { get; set; }
 
         // Apenas obrigatório quando TipoCadastro = PJ
         [MaxLength(260)]
-        public string? CartaoCnpjPdfPath { get; set; }
+        public string? CartaoCnpjCaminho { get; set; }
 
-        public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+        public DateTime DataAtualizacao { get; set; } = DateTime.UtcNow;
 
         // Navegação
         public Usuario Usuario { get; set; } = default!;

@@ -4,7 +4,7 @@ namespace VersopayLibrary.Models
 {
     public class Usuario
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
+        public int Id { get; set; }
 
         [Required, MaxLength(120)]
         public string Nome { get; set; } = default!;
@@ -28,8 +28,8 @@ namespace VersopayLibrary.Models
         [MaxLength(20)]
         public string? Telefone { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? UpdatedAt { get; set; }
+        public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
+        public DateTime? DataAtualizacao { get; set; }
 
         // 1:1
         public Documento? Documento { get; set; }

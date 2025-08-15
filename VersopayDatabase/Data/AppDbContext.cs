@@ -11,28 +11,29 @@ namespace VersopayDatabase.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var u = modelBuilder.Entity<Usuario>();
-            u.Property(p => p.Nome).HasMaxLength(120).IsRequired();
-            u.Property(p => p.Email).HasMaxLength(160).IsRequired();
-            u.Property(p => p.SenhaHash).IsRequired();
-            u.Property(p => p.CpfCnpj).HasMaxLength(14).IsRequired();
+            u.HasKey(x => x.Id);
+            u.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            u.Property(x => x.Email).HasMaxLength(160).IsRequired();
+            u.Property(x => x.SenhaHash).IsRequired();
+            u.Property(x => x.CpfCnpj).HasMaxLength(14).IsRequired();
 
-            u.HasIndex(p => p.Email).IsUnique();
-            u.HasIndex(p => p.CpfCnpj).IsUnique();
+            u.HasIndex(x => x.Email).IsUnique();
+            u.HasIndex(x => x.CpfCnpj).IsUnique();
 
-            // CHECK: 11 dígitos para PF, 14 para PJ (SQL Server: LEN; SQLite: LENGTH)
+            // SQL Server: LEN; (se usar SQLite, troque por LENGTH)
             u.ToTable(t => t.HasCheckConstraint(
                 "CK_Usuarios_CpfCnpj_Tipo",
                 "( (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14) )"
             ));
 
             var d = modelBuilder.Entity<Documento>();
-            d.HasKey(p => p.UsuarioId);
-            d.Property(p => p.FrenteRgCnhPath).HasMaxLength(260);
-            d.Property(p => p.VersoRgCnhPath).HasMaxLength(260);
-            d.Property(p => p.SelfieComDocPath).HasMaxLength(260);
-            d.Property(p => p.CartaoCnpjPdfPath).HasMaxLength(260);
+            d.HasKey(x => x.UsuarioId);
+            d.Property(x => x.FrenteRgCaminho).HasMaxLength(260);
+            d.Property(x => x.VersoRgCaminho).HasMaxLength(260);
+            d.Property(x => x.SelfieDocCaminho).HasMaxLength(260);
+            d.Property(x => x.CartaoCnpjCaminho).HasMaxLength(260);
 
-            // 1:1 Usuario <-> Documento (PK compartilhada)
+            // Relacionamento 1:1 (PK compartilhada) + cascade
             u.HasOne(x => x.Documento)
              .WithOne(x => x.Usuario)
              .HasForeignKey<Documento>(x => x.UsuarioId)
