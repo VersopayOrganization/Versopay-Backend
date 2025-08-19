@@ -7,6 +7,7 @@ using System.Text;
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Repositories;
+using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
@@ -56,6 +57,8 @@ builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddScoped<IDocumentoRepository, DocumentoRepository>();
+builder.Services.AddScoped<IDocumentosService, DocumentosService>();
 
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();

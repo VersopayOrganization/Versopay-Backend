@@ -1,7 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using System.ComponentModel.DataAnnotations;
-
-namespace VersopayBackend.Dtos
+﻿namespace VersopayBackend.Dtos
 {
     // Use em [FromForm]
     public class DocumentoUploadDto
