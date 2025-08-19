@@ -105,8 +105,8 @@ public class UsuariosController(AppDbContext db) : ControllerBase
         return Ok(dto);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<ActionResult<UsuarioResponseDto>> Update(Guid id, [FromBody] UsuarioUpdateDto dto)
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto dto)
     {
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
