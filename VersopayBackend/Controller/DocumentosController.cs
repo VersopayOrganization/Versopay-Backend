@@ -5,7 +5,7 @@ using VersopayBackend.Services;
 namespace VersopayBackend.Controllers
 {
     [ApiController]
-    [Route("api/usuarios/{usuarioId:int}/documentos")]
+    [Route("api/documentos/{usuarioId:int}")]
     public class DocumentosController(IDocumentosService svc) : ControllerBase
     {
         [HttpPost("upload-urls")]
