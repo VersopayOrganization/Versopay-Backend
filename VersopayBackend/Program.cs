@@ -10,10 +10,10 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Blob
-var blobConn = builder.Configuration.GetConnectionString("BlobStorage")
-    ?? throw new InvalidOperationException("Faltou ConnectionStrings:BlobStorage no appsettings.");
-builder.Services.AddSingleton(new BlobServiceClient(blobConn));
-builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+//var blobConn = builder.Configuration.GetConnectionString("BlobStorage")
+//    ?? throw new InvalidOperationException("Faltou ConnectionStrings:BlobStorage no appsettings.");
+//builder.Services.AddSingleton(new BlobServiceClient(blobConn));
+//builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
