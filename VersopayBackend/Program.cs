@@ -26,11 +26,9 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 
 // JWT
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
 
-builder.Services.AddSingleton<ITokenService, TokenService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -56,9 +54,13 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
-builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IDocumentoRepository, DocumentoRepository>();
 builder.Services.AddScoped<IDocumentosService, DocumentosService>();
+
+builder.Services.AddSingleton<IClock, SystemClock>();
+//builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();

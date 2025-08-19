@@ -9,7 +9,7 @@ namespace VersopayBackend.Services
 {
     public sealed class DocumentosService(
         IDocumentoRepository repo,
-        IBlobStorageService blobSvc,
+        //IBlobStorageService blobSvc,
         IConfiguration cfg) : IDocumentosService
     {
         private readonly string _container = cfg["Blob:Container"] ?? "kyc-docs";
@@ -28,16 +28,16 @@ namespace VersopayBackend.Services
                 var ext = part.Equals("cnpj", StringComparison.OrdinalIgnoreCase) ? ".pdf" : ".jpg";
                 var blobName = $"usuarios/{usuarioId}/{part}-{Guid.NewGuid():N}{ext}";
 
-                var (uri, name) = blobSvc.GetUploadSas(_container, blobName, ttl,
-                    BlobSasPermissions.Create | BlobSasPermissions.Write);
+                //var (uri, name) = blobSvc.GetUploadSas(_container, blobName, ttl,
+                //    BlobSasPermissions.Create | BlobSasPermissions.Write);
 
-                items.Add(new
-                {
-                    part,
-                    uploadUrl = uri.ToString(),
-                    blobName = name,
-                    expiresAt = DateTimeOffset.UtcNow.Add(ttl)
-                });
+                //items.Add(new
+                //{
+                //    part,
+                //    uploadUrl = uri.ToString(),
+                //    blobName = name,
+                //    expiresAt = DateTimeOffset.UtcNow.Add(ttl)
+                //});
             }
             return items;
         }
@@ -76,11 +76,11 @@ namespace VersopayBackend.Services
             return new DocumentoResponseDto
             {
                 UsuarioId = usuarioId,
-                FrenteUrl = MakeReadUrl(doc.FrenteRgCaminho, ttl),
-                VersoUrl = MakeReadUrl(doc.VersoRgCaminho, ttl),
-                SelfieUrl = MakeReadUrl(doc.SelfieDocCaminho, ttl),
-                CartaoCnpjUrl = MakeReadUrl(doc.CartaoCnpjCaminho, ttl),
-                UrlsExpiramEm = DateTime.UtcNow.Add(ttl),
+                //FrenteUrl = MakeReadUrl(doc.FrenteRgCaminho, ttl),
+                //VersoUrl = MakeReadUrl(doc.VersoRgCaminho, ttl),
+                //SelfieUrl = MakeReadUrl(doc.SelfieDocCaminho, ttl),
+                //CartaoCnpjUrl = MakeReadUrl(doc.CartaoCnpjCaminho, ttl),
+                //UrlsExpiramEm = DateTime.UtcNow.Add(ttl),
 
                 FrenteRgStatus = doc.FrenteRgStatus,
                 VersoRgStatus = doc.VersoRgStatus,
@@ -156,12 +156,12 @@ namespace VersopayBackend.Services
             foreach (var (file, part, ext) in toUpload)
             {
                 var blobName = $"usuarios/{usuarioId}/{part}-{Guid.NewGuid():N}{ext}";
-                var (sasUri, _) = blobSvc.GetUploadSas(_container, blobName, TimeSpan.FromMinutes(10),
-                    BlobSasPermissions.Create | BlobSasPermissions.Write);
+                //var (sasUri, _) = blobSvc.GetUploadSas(_container, blobName, TimeSpan.FromMinutes(10),
+                //    BlobSasPermissions.Create | BlobSasPermissions.Write);
 
-                var blob = new BlobClient(sasUri);
+                //var blob = new BlobClient(sasUri);
                 await using var s = file.OpenReadStream();
-                await blob.UploadAsync(s, new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = file.ContentType } });
+                //await blob.UploadAsync(s, new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = file.ContentType } });
 
                 var caminho = $"{_container}/{blobName}";
                 switch (part)
@@ -184,11 +184,11 @@ namespace VersopayBackend.Services
             return new DocumentoResponseDto
             {
                 UsuarioId = usuarioId,
-                FrenteUrl = MakeReadUrl(doc.FrenteRgCaminho, ttl),
-                VersoUrl = MakeReadUrl(doc.VersoRgCaminho, ttl),
-                SelfieUrl = MakeReadUrl(doc.SelfieDocCaminho, ttl),
-                CartaoCnpjUrl = MakeReadUrl(doc.CartaoCnpjCaminho, ttl),
-                UrlsExpiramEm = DateTime.UtcNow.Add(ttl),
+                //FrenteUrl = MakeReadUrl(doc.FrenteRgCaminho, ttl),
+                //VersoUrl = MakeReadUrl(doc.VersoRgCaminho, ttl),
+                //SelfieUrl = MakeReadUrl(doc.SelfieDocCaminho, ttl),
+                //CartaoCnpjUrl = MakeReadUrl(doc.CartaoCnpjCaminho, ttl),
+                //UrlsExpiramEm = DateTime.UtcNow.Add(ttl),
 
                 FrenteRgStatus = doc.FrenteRgStatus,
                 VersoRgStatus = doc.VersoRgStatus,
@@ -202,12 +202,12 @@ namespace VersopayBackend.Services
             };
         }
 
-        private string? MakeReadUrl(string? caminho, TimeSpan ttl)
-        {
-            if (string.IsNullOrWhiteSpace(caminho)) return null;
-            var (cont, name) = SplitStoragePath(caminho, _container);
-            return blobSvc.GetReadSas(cont, name, ttl).ToString();
-        }
+        //private string? MakeReadUrl(string? caminho, TimeSpan ttl)
+        //{
+        //    if (string.IsNullOrWhiteSpace(caminho)) return null;
+        //    var (cont, name) = SplitStoragePath(caminho, _container);
+        //    return blobSvc.GetReadSas(cont, name, ttl).ToString();
+        //}
 
         private static (string container, string name) SplitStoragePath(string caminho, string defaultContainer)
         {
