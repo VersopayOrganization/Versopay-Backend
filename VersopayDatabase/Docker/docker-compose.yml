@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: versopay-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-UmaSenhaForte!2025}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      # tenta sqlcmd v18; se não existir, tenta v17
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  sql-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-UmaSenhaForte!2025}"
+    entrypoint: ["/bin/bash", "-lc"]
+    command: >
+      "/opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"IF DB_ID(N'VersopayDb') IS NULL CREATE DATABASE [VersopayDb];\"
+      || /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"IF DB_ID(N'VersopayDb') IS NULL CREATE DATABASE [VersopayDb];\""
+
+volumes:
+  mssql_data:
+
+
+
+  # F:\Projetos\Versopay\VersopayBackend\VersopayDatabase\Docker
+  #bcdedit /set hypervisorlaunchtype auto
+  #docker-compose -f /mnt/f/Projetos/Versopay/VersopayBackend/VersopayDatabase/Docker/docker-compose.yml up -d --build
+  #sudo service mysql start
+  #bcdedit /set hypervisorlaunchtype off

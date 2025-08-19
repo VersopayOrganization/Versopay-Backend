@@ -1,143 +1,50 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
-using VersopayDatabase.Data;
-using VersopayLibrary.Models;
+using VersopayBackend.Services;
 
-[ApiController]
-[Route("api/[controller]")]
-public class UsuariosController(AppDbContext db) : ControllerBase
+namespace VersopayBackend.Controllers
 {
-    static string Digits(string? s) => string.IsNullOrWhiteSpace(s) ? "" : new string(s.Where(char.IsDigit).ToArray());
-    static string? MaskDocumento(string? d)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class UsuariosController(IUsuariosService svc) : ControllerBase
     {
-        if (string.IsNullOrWhiteSpace(d)) return null;
-        var x = new string(d.Where(char.IsDigit).ToArray());
-        if (x.Length == 11) return Convert.ToUInt64(x).ToString(@"000\.000\.000\-00");
-        if (x.Length == 14) return Convert.ToUInt64(x).ToString(@"00\.000\.000\/0000\-00");
-        return x;
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<UsuarioResponseDto>> Create([FromBody] UsuarioCreateDto dto)
-    {
-        if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
-        var email = dto.Email.Trim().ToLowerInvariant();
-        if (await db.Usuarios.AnyAsync(u => u.Email == email))
-            return Conflict(new { message = "Email já cadastrado." });
-
-        var u = new Usuario
+        [HttpPost]
+        public async Task<ActionResult<UsuarioResponseDto>> Create([FromBody] UsuarioCreateDto dto, CancellationToken ct)
         {
-            Nome = dto.Nome.Trim(),
-            Email = email,
-            TipoCadastro = dto.TipoCadastro,
-            CpfCnpj = Digits(dto.CpfCnpj),
-            Instagram = string.IsNullOrWhiteSpace(dto.Instagram) ? null :
-                        (dto.Instagram.StartsWith("@") ? dto.Instagram.Trim() : "@" + dto.Instagram.Trim()),
-            Telefone = dto.Telefone
-        };
-
-        var hasher = new PasswordHasher<Usuario>();
-        u.SenhaHash = hasher.HashPassword(u, dto.Senha);
-
-        db.Usuarios.Add(u);
-        await db.SaveChangesAsync();
-
-        var resp = new UsuarioResponseDto
-        {
-            Id = u.Id,
-            Nome = u.Nome,
-            Email = u.Email,
-            TipoCadastro = u.TipoCadastro,
-            Instagram = u.Instagram,
-            Telefone = u.Telefone,
-            CreatedAt = u.DataCriacao,
-            CpfCnpj = u.CpfCnpj,
-            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj),
-            IsAdmin = u.IsAdmin
-        };
-        return CreatedAtAction(nameof(GetById), new { id = u.Id }, resp);
-    }
-
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<UsuarioResponseDto>>> GetAll()
-    {
-        var list = await db.Usuarios.AsNoTracking()
-            .OrderByDescending(u => u.DataCriacao)
-            .Select(u => new UsuarioResponseDto
+            if (!ModelState.IsValid) return ValidationProblem(ModelState);
+            try
             {
-                Id = u.Id,
-                Nome = u.Nome,
-                Email = u.Email,
-                TipoCadastro = u.TipoCadastro,
-                Instagram = u.Instagram,
-                Telefone = u.Telefone,
-                CreatedAt = u.DataCriacao,
-                CpfCnpj = u.CpfCnpj,
-                IsAdmin = u.IsAdmin
-            })
-            .ToListAsync();
+                var res = await svc.CreateAsync(dto, ct);
+                return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
+            }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); } // email/cpfcnpj duplicado
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); } // validação PF/PJ/CPF/CNPJ
+        }
 
-        foreach (var i in list) i.CpfCnpjFormatado = MaskDocumento(i.CpfCnpj);
-        return Ok(list);
-    }
-
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<UsuarioResponseDto>> GetById(int id)
-    {
-        var dto = await db.Usuarios.AsNoTracking()
-            .Where(u => u.Id == id)
-            .Select(u => new UsuarioResponseDto
-            {
-                Id = u.Id,
-                Nome = u.Nome,
-                Email = u.Email,
-                TipoCadastro = u.TipoCadastro,
-                Instagram = u.Instagram,
-                Telefone = u.Telefone,
-                CreatedAt = u.DataCriacao,
-                CpfCnpj = u.CpfCnpj,
-                IsAdmin = u.IsAdmin
-            })
-            .FirstOrDefaultAsync();
-
-        if (dto is null) return NotFound();
-        dto.CpfCnpjFormatado = MaskDocumento(dto.CpfCnpj);
-        return Ok(dto);
-    }
-
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto dto)
-    {
-        if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
-        var u = await db.Usuarios.FindAsync(id);
-        if (u is null) return NotFound();
-
-        u.Nome = dto.Nome.Trim();
-        u.TipoCadastro = dto.TipoCadastro;
-        u.CpfCnpj = Digits(dto.CpfCnpj);
-        u.Instagram = string.IsNullOrWhiteSpace(dto.Instagram) ? null :
-                      (dto.Instagram.StartsWith("@") ? dto.Instagram.Trim() : "@" + dto.Instagram.Trim());
-        u.Telefone = dto.Telefone;
-        u.DataAtualizacao = DateTime.UtcNow;
-
-        await db.SaveChangesAsync();
-
-        return Ok(new UsuarioResponseDto
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<UsuarioResponseDto>>> GetAll(CancellationToken ct)
         {
-            Id = u.Id,
-            Nome = u.Nome,
-            Email = u.Email,
-            TipoCadastro = u.TipoCadastro,
-            Instagram = u.Instagram,
-            Telefone = u.Telefone,
-            CreatedAt = u.DataCriacao,
-            CpfCnpj = u.CpfCnpj,
-            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj),
-            IsAdmin = u.IsAdmin
-        });
+            var res = await svc.GetAllAsync(ct);
+            return Ok(res);
+        }
+
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<UsuarioResponseDto>> GetById(int id, CancellationToken ct)
+        {
+            var res = await svc.GetByIdAsync(id, ct);
+            return res is null ? NotFound() : Ok(res);
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto dto, CancellationToken ct)
+        {
+            if (!ModelState.IsValid) return ValidationProblem(ModelState);
+            try
+            {
+                var res = await svc.UpdateAsync(id, dto, ct);
+                return res is null ? NotFound() : Ok(res);
+            }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        }
     }
 }
