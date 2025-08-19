@@ -6,5 +6,7 @@ namespace VersopayBackend.Dtos
     {
         [Required, EmailAddress] public string Email { get; set; } = default!;
         [Required] public string Senha { get; set; } = default!;
+        public bool Lembrar7Dias { get; set; } = false;
+
     }
 }

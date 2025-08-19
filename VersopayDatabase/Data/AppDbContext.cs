@@ -7,7 +7,7 @@ namespace VersopayDatabase.Data
     {
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<Documento> Documentos => Set<Documento>();
-
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var u = modelBuilder.Entity<Usuario>();
@@ -44,6 +44,15 @@ namespace VersopayDatabase.Data
              .WithOne(x => x.Usuario)
              .HasForeignKey<Documento>(x => x.UsuarioId)
              .OnDelete(DeleteBehavior.Cascade);
+
+            var rt = modelBuilder.Entity<RefreshToken>();
+            rt.HasKey(x => x.Id);
+            rt.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            rt.HasIndex(x => x.TokenHash).IsUnique(); // lookup rápido por token
+            rt.HasOne(x => x.Usuario)
+              .WithMany() // ou crie ICollection<RefreshToken> no Usuario, se quiser navegar
+              .HasForeignKey(x => x.UsuarioId)
+              .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
