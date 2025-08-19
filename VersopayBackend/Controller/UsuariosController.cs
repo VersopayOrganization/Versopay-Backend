@@ -55,7 +55,8 @@ public class UsuariosController(AppDbContext db) : ControllerBase
             Telefone = u.Telefone,
             CreatedAt = u.DataCriacao,
             CpfCnpj = u.CpfCnpj,
-            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj)
+            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj),
+            IsAdmin = u.IsAdmin
         };
         return CreatedAtAction(nameof(GetById), new { id = u.Id }, resp);
     }
@@ -74,7 +75,8 @@ public class UsuariosController(AppDbContext db) : ControllerBase
                 Instagram = u.Instagram,
                 Telefone = u.Telefone,
                 CreatedAt = u.DataCriacao,
-                CpfCnpj = u.CpfCnpj
+                CpfCnpj = u.CpfCnpj,
+                IsAdmin = u.IsAdmin
             })
             .ToListAsync();
 
@@ -96,7 +98,8 @@ public class UsuariosController(AppDbContext db) : ControllerBase
                 Instagram = u.Instagram,
                 Telefone = u.Telefone,
                 CreatedAt = u.DataCriacao,
-                CpfCnpj = u.CpfCnpj
+                CpfCnpj = u.CpfCnpj,
+                IsAdmin = u.IsAdmin
             })
             .FirstOrDefaultAsync();
 
@@ -133,7 +136,8 @@ public class UsuariosController(AppDbContext db) : ControllerBase
             Telefone = u.Telefone,
             CreatedAt = u.DataCriacao,
             CpfCnpj = u.CpfCnpj,
-            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj)
+            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj),
+            IsAdmin = u.IsAdmin
         });
     }
 }

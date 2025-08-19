@@ -27,6 +27,7 @@ namespace VersopayLibrary.Models
 
         [MaxLength(20)]
         public string? Telefone { get; set; }
+        public bool IsAdmin { get; set; } = false;
 
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public DateTime? DataAtualizacao { get; set; }
