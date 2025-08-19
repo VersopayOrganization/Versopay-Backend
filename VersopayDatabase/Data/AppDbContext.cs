@@ -18,6 +18,7 @@ namespace VersopayDatabase.Data
             u.Property(x => x.CpfCnpj).HasMaxLength(14).IsRequired();
             u.HasIndex(x => x.Email).IsUnique();
             u.HasIndex(x => x.CpfCnpj).IsUnique();
+            u.Property(x => x.IsAdmin).HasDefaultValue(false);
             u.ToTable(t => t.HasCheckConstraint(
                 "CK_Usuarios_CpfCnpj_Tipo",
                 "( (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14) )"

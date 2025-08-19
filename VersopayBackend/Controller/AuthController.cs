@@ -73,7 +73,8 @@ namespace VersopayBackend.Controllers
                 Telefone = u.Telefone,
                 CreatedAt = u.DataCriacao,
                 CpfCnpj = u.CpfCnpj,
-                CpfCnpjFormatado = MaskDocumento(u.CpfCnpj)
+                CpfCnpjFormatado = MaskDocumento(u.CpfCnpj),
+                IsAdmin = u.IsAdmin
             };
 
             return Ok(new AuthResponseDto
@@ -133,7 +134,8 @@ namespace VersopayBackend.Controllers
                     Telefone = u.Telefone,
                     CreatedAt = u.DataCriacao,
                     CpfCnpj = u.CpfCnpj,
-                    CpfCnpjFormatado = MaskDocumento(u.CpfCnpj)
+                    CpfCnpjFormatado = MaskDocumento(u.CpfCnpj),
+                    IsAdmin = u.IsAdmin
                 }
             });
         }

@@ -18,8 +18,12 @@ namespace VersopayBackend.Auth
                 new(JwtRegisteredClaimNames.Sub, u.Id.ToString()),
                 new(JwtRegisteredClaimNames.Email, u.Email),
                 new(JwtRegisteredClaimNames.Name, u.Nome),
-                new("tipoCadastro", u.TipoCadastro.ToString())
+                new("tipoCadastro", u.TipoCadastro.ToString()),
+                new("isAdmin", u.IsAdmin ? "true" : "false")
             };
+
+            if (u.IsAdmin)
+                claims.Add(new Claim(ClaimTypes.Role, "Admin")); // << habilita [Authorize(Roles="Admin")]
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opt.Key));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
