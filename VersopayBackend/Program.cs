@@ -1,12 +1,15 @@
-using System.Text;
-using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 using VersopayBackend.Auth;
-using VersopayBackend.Services;
+using VersopayBackend.Common;
+using VersopayBackend.Repositories;
+using VersopayBackend.Services.Auth;
 using VersopayDatabase.Data;
+using VersopayLibrary.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +52,11 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+builder.Services.AddSingleton<IClock, SystemClock>();
+
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -83,7 +91,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication(); // << precisa vir antes do UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
