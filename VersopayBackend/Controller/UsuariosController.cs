@@ -53,9 +53,9 @@ public class UsuariosController(AppDbContext db) : ControllerBase
             TipoCadastro = u.TipoCadastro,
             Instagram = u.Instagram,
             Telefone = u.Telefone,
-            CreatedAt = u.CreatedAt,
+            CreatedAt = u.DataCriacao,
             CpfCnpj = u.CpfCnpj,
-            DocumentoFormatado = MaskDocumento(u.CpfCnpj)
+            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj)
         };
         return CreatedAtAction(nameof(GetById), new { id = u.Id }, resp);
     }
@@ -64,7 +64,7 @@ public class UsuariosController(AppDbContext db) : ControllerBase
     public async Task<ActionResult<IEnumerable<UsuarioResponseDto>>> GetAll()
     {
         var list = await db.Usuarios.AsNoTracking()
-            .OrderByDescending(u => u.CreatedAt)
+            .OrderByDescending(u => u.DataCriacao)
             .Select(u => new UsuarioResponseDto
             {
                 Id = u.Id,
@@ -73,17 +73,17 @@ public class UsuariosController(AppDbContext db) : ControllerBase
                 TipoCadastro = u.TipoCadastro,
                 Instagram = u.Instagram,
                 Telefone = u.Telefone,
-                CreatedAt = u.CreatedAt,
+                CreatedAt = u.DataCriacao,
                 CpfCnpj = u.CpfCnpj
             })
             .ToListAsync();
 
-        foreach (var i in list) i.DocumentoFormatado = MaskDocumento(i.CpfCnpj);
+        foreach (var i in list) i.CpfCnpjFormatado = MaskDocumento(i.CpfCnpj);
         return Ok(list);
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<ActionResult<UsuarioResponseDto>> GetById(Guid id)
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<UsuarioResponseDto>> GetById(int id)
     {
         var dto = await db.Usuarios.AsNoTracking()
             .Where(u => u.Id == id)
@@ -95,18 +95,18 @@ public class UsuariosController(AppDbContext db) : ControllerBase
                 TipoCadastro = u.TipoCadastro,
                 Instagram = u.Instagram,
                 Telefone = u.Telefone,
-                CreatedAt = u.CreatedAt,
+                CreatedAt = u.DataCriacao,
                 CpfCnpj = u.CpfCnpj
             })
             .FirstOrDefaultAsync();
 
         if (dto is null) return NotFound();
-        dto.DocumentoFormatado = MaskDocumento(dto.CpfCnpj);
+        dto.CpfCnpjFormatado = MaskDocumento(dto.CpfCnpj);
         return Ok(dto);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<ActionResult<UsuarioResponseDto>> Update(Guid id, [FromBody] UsuarioUpdateDto dto)
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto dto)
     {
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
@@ -115,11 +115,11 @@ public class UsuariosController(AppDbContext db) : ControllerBase
 
         u.Nome = dto.Nome.Trim();
         u.TipoCadastro = dto.TipoCadastro;
-        u.CpfCnpj = Digits(dto.Documento);
+        u.CpfCnpj = Digits(dto.CpfCnpj);
         u.Instagram = string.IsNullOrWhiteSpace(dto.Instagram) ? null :
                       (dto.Instagram.StartsWith("@") ? dto.Instagram.Trim() : "@" + dto.Instagram.Trim());
         u.Telefone = dto.Telefone;
-        u.UpdatedAt = DateTime.UtcNow;
+        u.DataAtualizacao = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
 
@@ -131,9 +131,9 @@ public class UsuariosController(AppDbContext db) : ControllerBase
             TipoCadastro = u.TipoCadastro,
             Instagram = u.Instagram,
             Telefone = u.Telefone,
-            CreatedAt = u.CreatedAt,
+            CreatedAt = u.DataCriacao,
             CpfCnpj = u.CpfCnpj,
-            DocumentoFormatado = MaskDocumento(u.CpfCnpj)
+            CpfCnpjFormatado = MaskDocumento(u.CpfCnpj)
         });
     }
 }
