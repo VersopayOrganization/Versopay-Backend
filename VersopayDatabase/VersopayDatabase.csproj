@@ -22,4 +22,8 @@
     <ProjectReference Include="..\VersopayLibrary\VersopayLibrary.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Docker\" />
+  </ItemGroup>
+
 </Project>

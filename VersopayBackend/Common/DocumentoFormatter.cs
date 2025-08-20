@@ -2,10 +2,10 @@
 {
     public static class DocumentoFormatter
     {
-        public static string? Mask(string? d)
+        public static string? Mask(string? documento)
         {
-            if (string.IsNullOrWhiteSpace(d)) return null;
-            var x = new string(d.Where(char.IsDigit).ToArray());
+            if (string.IsNullOrWhiteSpace(documento)) return null;
+            var x = new string(documento.Where(char.IsDigit).ToArray());
             return x.Length switch
             {
                 11 => Convert.ToUInt64(x).ToString(@"000\.000\.000\-00"),

@@ -4,9 +4,9 @@ namespace VersopayBackend.Repositories
 {
     public interface IDocumentoRepository
     {
-        Task<Usuario?> GetUsuarioAsync(int usuarioId, CancellationToken ct);
-        Task<Documento?> GetDocumentoAsync(int usuarioId, CancellationToken ct, bool track = true);
-        Task AddDocumentoAsync(Documento doc, CancellationToken ct);
-        Task SaveChangesAsync(CancellationToken ct);
+        Task<Usuario?> GetUsuarioAsync(int usuarioId, CancellationToken cancellationToken);
+        Task<Documento?> GetDocumentoAsync(int usuarioId, CancellationToken cancellationToken, bool track = true);
+        Task AddDocumentoAsync(Documento documento, CancellationToken cancellationToken);
+        Task SaveChangesAsync(CancellationToken cancellationToken);
     }
 }
