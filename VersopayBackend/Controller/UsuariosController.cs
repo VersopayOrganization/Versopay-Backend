@@ -6,45 +6,45 @@ namespace VersopayBackend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UsuariosController(IUsuariosService svc) : ControllerBase
+    public class UsuariosController(IUsuariosService usuarioService) : ControllerBase
     {
         [HttpPost]
-        public async Task<ActionResult<UsuarioResponseDto>> Create([FromBody] UsuarioCreateDto dto, CancellationToken ct)
+        public async Task<ActionResult<UsuarioResponseDto>> Create([FromBody] UsuarioCreateDto usuarioCreateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
             {
-                var res = await svc.CreateAsync(dto, ct);
-                return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
+                var response = await usuarioService.CreateAsync(usuarioCreateDto, cancellationToken);
+                return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
             }
-            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); } // email/cpfcnpj duplicado
-            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); } // validação PF/PJ/CPF/CNPJ
+            catch (InvalidOperationException exception) { return Conflict(new { message = exception.Message }); } // email/cpfcnpj duplicado
+            catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); } // validação PF/PJ/CPF/CNPJ
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<UsuarioResponseDto>>> GetAll(CancellationToken ct)
+        public async Task<ActionResult<IEnumerable<UsuarioResponseDto>>> GetAll(CancellationToken cancellationToken)
         {
-            var res = await svc.GetAllAsync(ct);
-            return Ok(res);
+            var response = await usuarioService.GetAllAsync(cancellationToken);
+            return Ok(response);
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<UsuarioResponseDto>> GetById(int id, CancellationToken ct)
+        public async Task<ActionResult<UsuarioResponseDto>> GetById(int id, CancellationToken cancellationToken)
         {
-            var res = await svc.GetByIdAsync(id, ct);
-            return res is null ? NotFound() : Ok(res);
+            var response = await usuarioService.GetByIdAsync(id, cancellationToken);
+            return response is null ? NotFound() : Ok(response);
         }
 
         [HttpPut("{id:int}")]
-        public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto dto, CancellationToken ct)
+        public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto usuarioUpdateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
             {
-                var res = await svc.UpdateAsync(id, dto, ct);
-                return res is null ? NotFound() : Ok(res);
+                var response = await usuarioService.UpdateAsync(id, usuarioUpdateDto, cancellationToken);
+                return response is null ? NotFound() : Ok(response);
             }
-            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
         }
     }
 }
