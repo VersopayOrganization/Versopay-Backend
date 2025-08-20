@@ -8,22 +8,22 @@ using VersopayLibrary.Models;
 namespace VersopayBackend.Services
 {
     public sealed class DocumentosService(
-        IDocumentoRepository repo,
+        IDocumentoRepository documentoRepository,
         //IBlobStorageService blobSvc,
         IConfiguration cfg) : IDocumentosService
     {
         private readonly string _container = cfg["Blob:Container"] ?? "kyc-docs";
 
         // 1) SAS de upload (retorna lista [{ part, uploadUrl, blobName, expiresAt }])
-        public async Task<IEnumerable<object>> GenerateUploadUrlsAsync(int usuarioId, UploadUrlsRequest req, CancellationToken ct)
+        public async Task<IEnumerable<object>> GenerateUploadUrlsAsync(int usuarioId, UploadUrlsRequest uploadUrlsRequest, CancellationToken ct)
         {
-            var user = await repo.GetUsuarioAsync(usuarioId, ct)
+            var user = await documentoRepository.GetUsuarioAsync(usuarioId, ct)
                        ?? throw new KeyNotFoundException("Usuário não encontrado.");
 
             var ttl = TimeSpan.FromMinutes(10);
             var items = new List<object>();
 
-            foreach (var part in req.Parts ?? Array.Empty<string>())
+            foreach (var part in uploadUrlsRequest.Parts ?? Array.Empty<string>())
             {
                 var ext = part.Equals("cnpj", StringComparison.OrdinalIgnoreCase) ? ".pdf" : ".jpg";
                 var blobName = $"usuarios/{usuarioId}/{part}-{Guid.NewGuid():N}{ext}";
@@ -43,33 +43,33 @@ namespace VersopayBackend.Services
         }
 
         // 2) Confirmar metadados
-        public async Task ConfirmAsync(int usuarioId, ConfirmDocumentoDto dto, CancellationToken ct)
+        public async Task ConfirmAsync(int usuarioId, ConfirmDocumentoDto confirmDocumentoDto, CancellationToken ct)
         {
-            var user = await repo.GetUsuarioAsync(usuarioId, ct)
+            var user = await documentoRepository.GetUsuarioAsync(usuarioId, ct)
                        ?? throw new KeyNotFoundException("Usuário não encontrado.");
 
-            if (user.TipoCadastro == TipoCadastro.PJ && string.IsNullOrWhiteSpace(dto.CartaoCnpjCaminho))
+            if (user.TipoCadastro == TipoCadastro.PJ && string.IsNullOrWhiteSpace(confirmDocumentoDto.CartaoCnpjCaminho))
                 throw new InvalidOperationException("Cartão CNPJ é obrigatório para PJ.");
 
-            var doc = await repo.GetDocumentoAsync(usuarioId, ct) ?? new Documento { UsuarioId = usuarioId };
+            var doc = await documentoRepository.GetDocumentoAsync(usuarioId, ct) ?? new Documento { UsuarioId = usuarioId };
 
-            if (!string.IsNullOrWhiteSpace(dto.FrenteRgCaminho)) { doc.FrenteRgCaminho = dto.FrenteRgCaminho; doc.FrenteRgStatus = StatusDocumento.EmAnalise; }
-            if (!string.IsNullOrWhiteSpace(dto.VersoRgCaminho)) { doc.VersoRgCaminho = dto.VersoRgCaminho; doc.VersoRgStatus = StatusDocumento.EmAnalise; }
-            if (!string.IsNullOrWhiteSpace(dto.SelfieDocCaminho)) { doc.SelfieDocCaminho = dto.SelfieDocCaminho; doc.SelfieDocStatus = StatusDocumento.EmAnalise; }
-            if (!string.IsNullOrWhiteSpace(dto.CartaoCnpjCaminho)) { doc.CartaoCnpjCaminho = dto.CartaoCnpjCaminho; doc.CartaoCnpjStatus = StatusDocumento.EmAnalise; }
+            if (!string.IsNullOrWhiteSpace(confirmDocumentoDto.FrenteRgCaminho)) { doc.FrenteRgCaminho = confirmDocumentoDto.FrenteRgCaminho; doc.FrenteRgStatus = StatusDocumento.EmAnalise; }
+            if (!string.IsNullOrWhiteSpace(confirmDocumentoDto.VersoRgCaminho)) { doc.VersoRgCaminho = confirmDocumentoDto.VersoRgCaminho; doc.VersoRgStatus = StatusDocumento.EmAnalise; }
+            if (!string.IsNullOrWhiteSpace(confirmDocumentoDto.SelfieDocCaminho)) { doc.SelfieDocCaminho = confirmDocumentoDto.SelfieDocCaminho; doc.SelfieDocStatus = StatusDocumento.EmAnalise; }
+            if (!string.IsNullOrWhiteSpace(confirmDocumentoDto.CartaoCnpjCaminho)) { doc.CartaoCnpjCaminho = confirmDocumentoDto.CartaoCnpjCaminho; doc.CartaoCnpjStatus = StatusDocumento.EmAnalise; }
 
             doc.DataAtualizacao = DateTime.UtcNow;
 
-            if (await repo.GetDocumentoAsync(usuarioId, ct, track: false) is null)
-                await repo.AddDocumentoAsync(doc, ct);
+            if (await documentoRepository.GetDocumentoAsync(usuarioId, ct, track: false) is null)
+                await documentoRepository.AddDocumentoAsync(doc, ct);
 
-            await repo.SaveChangesAsync(ct);
+            await documentoRepository.SaveChangesAsync(ct);
         }
 
         // 3) URLs de leitura — retorna seu DocumentoResponseDto (URLs + expiração)
         public async Task<DocumentoResponseDto?> GetReadUrlsAsync(int usuarioId, CancellationToken ct)
         {
-            var doc = await repo.GetDocumentoAsync(usuarioId, ct, track: false);
+            var doc = await documentoRepository.GetDocumentoAsync(usuarioId, ct, track: false);
             if (doc is null) return null;
 
             var ttl = TimeSpan.FromMinutes(5);
@@ -97,7 +97,7 @@ namespace VersopayBackend.Services
         // 4) Status agregado — também retorna DocumentoResponseDto (URLs nulas)
         public async Task<DocumentoResponseDto?> GetStatusAsync(int usuarioId, CancellationToken ct)
         {
-            var doc = await repo.GetDocumentoAsync(usuarioId, ct, track: false);
+            var doc = await documentoRepository.GetDocumentoAsync(usuarioId, ct, track: false);
             if (doc is null) return null;
 
             return new DocumentoResponseDto
@@ -116,12 +116,12 @@ namespace VersopayBackend.Services
         }
 
         // 5) Upload multipart — devolve DocumentoResponseDto com URLs temporárias
-        public async Task<DocumentoResponseDto?> FormUploadAsync(int usuarioId, DocumentoUploadDto form, CancellationToken ct)
+        public async Task<DocumentoResponseDto?> FormUploadAsync(int usuarioId, DocumentoUploadDto documentoUploadDto, CancellationToken ct)
         {
-            var user = await repo.GetUsuarioAsync(usuarioId, ct)
+            var user = await documentoRepository.GetUsuarioAsync(usuarioId, ct)
                        ?? throw new KeyNotFoundException("Usuário não encontrado.");
 
-            if (user.TipoCadastro == TipoCadastro.PJ && form.CartaoCnpjPdf is null)
+            if (user.TipoCadastro == TipoCadastro.PJ && documentoUploadDto.CartaoCnpjPdf is null)
                 throw new InvalidOperationException("Cartão CNPJ (PDF) é obrigatório para PJ.");
 
             const long MAX_IMG = 5L * 1024 * 1024;  // 5MB
@@ -140,18 +140,18 @@ namespace VersopayBackend.Services
                 if (f.ContentType != "application/pdf") throw new InvalidOperationException($"{nome}: apenas application/pdf.");
             }
 
-            CheckImg(form.FrenteDoc, "FrenteDoc");
-            CheckImg(form.VersoDoc, "VersoDoc");
-            CheckImg(form.SelfieDoc, "SelfieDoc");
-            CheckPdf(form.CartaoCnpjPdf, "CartaoCnpjPdf");
+            CheckImg(documentoUploadDto.FrenteDoc, "FrenteDoc");
+            CheckImg(documentoUploadDto.VersoDoc, "VersoDoc");
+            CheckImg(documentoUploadDto.SelfieDoc, "SelfieDoc");
+            CheckPdf(documentoUploadDto.CartaoCnpjPdf, "CartaoCnpjPdf");
 
-            var doc = await repo.GetDocumentoAsync(usuarioId, ct) ?? new Documento { UsuarioId = usuarioId };
+            var doc = await documentoRepository.GetDocumentoAsync(usuarioId, ct) ?? new Documento { UsuarioId = usuarioId };
 
             var toUpload = new List<(IFormFile file, string part, string ext)>();
-            if (form.FrenteDoc is not null) toUpload.Add((form.FrenteDoc, "frente", ".jpg"));
-            if (form.VersoDoc is not null) toUpload.Add((form.VersoDoc, "verso", ".jpg"));
-            if (form.SelfieDoc is not null) toUpload.Add((form.SelfieDoc, "selfie", ".jpg"));
-            if (form.CartaoCnpjPdf is not null) toUpload.Add((form.CartaoCnpjPdf, "cnpj", ".pdf"));
+            if (documentoUploadDto.FrenteDoc is not null) toUpload.Add((documentoUploadDto.FrenteDoc, "frente", ".jpg"));
+            if (documentoUploadDto.VersoDoc is not null) toUpload.Add((documentoUploadDto.VersoDoc, "verso", ".jpg"));
+            if (documentoUploadDto.SelfieDoc is not null) toUpload.Add((documentoUploadDto.SelfieDoc, "selfie", ".jpg"));
+            if (documentoUploadDto.CartaoCnpjPdf is not null) toUpload.Add((documentoUploadDto.CartaoCnpjPdf, "cnpj", ".pdf"));
 
             foreach (var (file, part, ext) in toUpload)
             {
@@ -174,10 +174,10 @@ namespace VersopayBackend.Services
                 doc.DataAtualizacao = DateTime.UtcNow;
             }
 
-            if (await repo.GetDocumentoAsync(usuarioId, ct, track: false) is null)
-                await repo.AddDocumentoAsync(doc, ct);
+            if (await documentoRepository.GetDocumentoAsync(usuarioId, ct, track: false) is null)
+                await documentoRepository.AddDocumentoAsync(doc, ct);
 
-            await repo.SaveChangesAsync(ct);
+            await documentoRepository.SaveChangesAsync(ct);
 
             // monta resposta com URLs temporárias
             var ttl = TimeSpan.FromMinutes(5);
