@@ -13,11 +13,11 @@ namespace VersopayBackend.Controllers
 
         [HttpPost("login")]
         [AllowAnonymous]
-        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto dto, CancellationToken ct)
+        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto, CancellationToken ct)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
-            var result = await auth.LoginAsync(dto,
+            var result = await auth.LoginAsync(loginDto,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
                 Request.Headers.UserAgent.ToString(), ct);
 

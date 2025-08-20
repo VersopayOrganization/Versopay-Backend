@@ -4,17 +4,17 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
-    public sealed class UsuarioRepository(AppDbContext db) : IUsuarioRepository
+    public sealed class UsuarioRepository(AppDbContext appDbContext) : IUsuarioRepository
     {
         public Task<Usuario?> GetByEmailAsync(string email, CancellationToken ct) =>
-            db.Usuarios.FirstOrDefaultAsync(u => u.Email == email, ct);
+            appDbContext.Usuarios.FirstOrDefaultAsync(u => u.Email == email, ct);
 
         public Task<RefreshToken?> GetRefreshWithUserByHashAsync(string tokenHash, CancellationToken ct) =>
-            db.RefreshTokens.Include(r => r.Usuario).FirstOrDefaultAsync(r => r.TokenHash == tokenHash, ct);
+            appDbContext.RefreshTokens.Include(r => r.Usuario).FirstOrDefaultAsync(r => r.TokenHash == tokenHash, ct);
 
         public Task AddRefreshAsync(RefreshToken token, CancellationToken ct)
-            => db.RefreshTokens.AddAsync(token, ct).AsTask();
+            => appDbContext.RefreshTokens.AddAsync(token, ct).AsTask();
 
-        public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
+        public Task SaveChangesAsync(CancellationToken ct) => appDbContext.SaveChangesAsync(ct);
     }
 }

@@ -8,9 +8,9 @@ using VersopayLibrary.Models;
 namespace VersopayBackend.Services.Auth
 {
     public sealed class AuthService(
-        IUsuarioRepository repo,
+        IUsuarioRepository usuarioRepository,
         ITokenService tokens,
-        IRefreshTokenService rts,
+        IRefreshTokenService refreshTokenService,
         IPasswordHasher<Usuario> hasher,
         IClock clock,
         ILogger<AuthService> logger) : IAuthService
@@ -18,45 +18,45 @@ namespace VersopayBackend.Services.Auth
         public async Task<AuthResult?> LoginAsync(LoginDto dto, string? ip, string? userAgent, CancellationToken ct)
         {
             var email = dto.Email.Trim().ToLowerInvariant();
-            var u = await repo.GetByEmailAsync(email, ct);
-            if (u is null) return null;
+            var usuario = await usuarioRepository.GetByEmailAsync(email, ct);
+            if (usuario is null) return null;
 
-            var vr = hasher.VerifyHashedPassword(u, u.SenhaHash, dto.Senha);
-            if (vr == PasswordVerificationResult.Failed) return null;
-            if (vr == PasswordVerificationResult.SuccessRehashNeeded)
+            var verifyHashPassword = hasher.VerifyHashedPassword(u, u.SenhaHash, dto.Senha);
+            if (verifyHashPassword == PasswordVerificationResult.Failed) return null;
+            if (verifyHashPassword == PasswordVerificationResult.SuccessRehashNeeded)
             {
-                u.SenhaHash = hasher.HashPassword(u, dto.Senha);
-                await repo.SaveChangesAsync(ct);
+                u.SenhaHash = hasher.HashPassword(usuario, dto.Senha);
+                await usuarioRepository.SaveChangesAsync(ct);
             }
 
-            var access = tokens.CreateToken(u, clock.UtcNow, out var accessExp);
+            var access = tokens.CreateToken(usuario, clock.UtcNow, out var accessExp);
 
             var lifetime = dto.Lembrar7Dias ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
-            var (raw, hash, exp) = rts.Create(lifetime);
+            var (raw, hash, exp) = refreshTokenService.Create(lifetime);
 
-            await repo.AddRefreshAsync(new RefreshToken
+            await usuarioRepository.AddRefreshAsync(new RefreshToken
             {
-                UsuarioId = u.Id,
+                UsuarioId = usuario.Id,
                 TokenHash = hash,
                 ExpiraEmUtc = exp,
                 Ip = ip,
                 UserAgent = userAgent
             }, ct);
 
-            await repo.SaveChangesAsync(ct);
+            await usuarioRepository.SaveChangesAsync(ct);
 
             var usuarioDto = new UsuarioResponseDto
             {
-                Id = u.Id,
-                Nome = u.Nome,
-                Email = u.Email,
-                TipoCadastro = u.TipoCadastro,
-                Instagram = u.Instagram,
-                Telefone = u.Telefone,
-                CreatedAt = u.DataCriacao,
-                CpfCnpj = u.CpfCnpj,
-                CpfCnpjFormatado = DocumentoFormatter.Mask(u.CpfCnpj),
-                IsAdmin = u.IsAdmin
+                Id = usuario.Id,
+                Nome = usuario.Nome,
+                Email = usuario.Email,
+                TipoCadastro = usuario.TipoCadastro,
+                Instagram = usuario.Instagram,
+                Telefone = usuario.Telefone,
+                CreatedAt = usuario.DataCriacao,
+                CpfCnpj = usuario.CpfCnpj,
+                CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
+                IsAdmin = usuario.IsAdmin
             };
 
             var resp = new AuthResponseDto { AccessToken = access, ExpiresAtUtc = accessExp, Usuario = usuarioDto };
@@ -65,27 +65,27 @@ namespace VersopayBackend.Services.Auth
 
         public async Task<AuthResult?> RefreshAsync(string rawRefresh, string? ip, string? userAgent, CancellationToken ct)
         {
-            var hash = rts.Hash(rawRefresh);
-            var rt = await repo.GetRefreshWithUserByHashAsync(hash, ct);
-            if (rt is null || !rt.EstaAtivo) return null;
+            var hash = refreshTokenService.Hash(rawRefresh);
+            var refreshUserHash = await usuarioRepository.GetRefreshWithUserByHashAsync(hash, ct);
+            if (refreshUserHash is null || !refreshUserHash.EstaAtivo) return null;
 
-            rt.RevogadoEmUtc = clock.UtcNow;
-            var lifetime = rt.ExpiraEmUtc - rt.CriadoEmUtc;
-            var (rawNew, hashNew, expNew) = rts.Create(lifetime);
-            rt.SubstituidoPorHash = hashNew;
+            refreshUserHash.RevogadoEmUtc = clock.UtcNow;
+            var lifetime = refreshUserHash.ExpiraEmUtc - refreshUserHash.CriadoEmUtc;
+            var (rawNew, hashNew, expNew) = refreshTokenService.Create(lifetime);
+            refreshUserHash.SubstituidoPorHash = hashNew;
 
-            await repo.AddRefreshAsync(new RefreshToken
+            await usuarioRepository.AddRefreshAsync(new RefreshToken
             {
-                UsuarioId = rt.UsuarioId,
+                UsuarioId = refreshUserHash.UsuarioId,
                 TokenHash = hashNew,
                 ExpiraEmUtc = expNew,
                 Ip = ip,
                 UserAgent = userAgent
             }, ct);
 
-            var u = rt.Usuario!;
-            var access = tokens.CreateToken(u, clock.UtcNow, out var accessExp);
-            await repo.SaveChangesAsync(ct);
+            var usuario = refreshUserHash.Usuario!;
+            var access = tokens.CreateToken(usuario, clock.UtcNow, out var accessExp);
+            await usuarioRepository.SaveChangesAsync(ct);
 
             var resp = new AuthResponseDto
             {
@@ -93,16 +93,16 @@ namespace VersopayBackend.Services.Auth
                 ExpiresAtUtc = accessExp,
                 Usuario = new UsuarioResponseDto
                 {
-                    Id = u.Id,
-                    Nome = u.Nome,
-                    Email = u.Email,
-                    TipoCadastro = u.TipoCadastro,
-                    Instagram = u.Instagram,
-                    Telefone = u.Telefone,
-                    CreatedAt = u.DataCriacao,
-                    CpfCnpj = u.CpfCnpj,
-                    CpfCnpjFormatado = DocumentoFormatter.Mask(u.CpfCnpj),
-                    IsAdmin = u.IsAdmin
+                    Id = usuario.Id,
+                    Nome = usuario.Nome,
+                    Email = usuario.Email,
+                    TipoCadastro = usuario.TipoCadastro,
+                    Instagram = usuario.Instagram,
+                    Telefone = usuario.Telefone,
+                    CreatedAt = usuario.DataCriacao,
+                    CpfCnpj = usuario.CpfCnpj,
+                    CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
+                    IsAdmin = usuario.IsAdmin
                 }
             };
 
@@ -112,12 +112,12 @@ namespace VersopayBackend.Services.Auth
         public async Task LogoutAsync(string? rawRefresh, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(rawRefresh)) return;
-            var hash = rts.Hash(rawRefresh);
-            var rt = await repo.GetRefreshWithUserByHashAsync(hash, ct);
-            if (rt is not null && rt.RevogadoEmUtc is null)
+            var hash = refreshTokenService.Hash(rawRefresh);
+            var refreshUserHash = await usuarioRepository.GetRefreshWithUserByHashAsync(hash, ct);
+            if (refreshUserHash is not null && refreshUserHash.RevogadoEmUtc is null)
             {
-                rt.RevogadoEmUtc = clock.UtcNow;
-                await repo.SaveChangesAsync(ct);
+                refreshUserHash.RevogadoEmUtc = clock.UtcNow;
+                await usuarioRepository.SaveChangesAsync(ct);
             }
         }
     }

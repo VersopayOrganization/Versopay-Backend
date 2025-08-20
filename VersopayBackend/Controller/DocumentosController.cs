@@ -9,11 +9,11 @@ namespace VersopayBackend.Controllers
     public class DocumentosController(IDocumentosService svc) : ControllerBase
     {
         [HttpPost("upload-urls")]
-        public async Task<ActionResult<IEnumerable<object>>> GetUploadUrls(int usuarioId, [FromBody] UploadUrlsRequest req, CancellationToken ct)
+        public async Task<ActionResult<IEnumerable<object>>> GetUploadUrls(int usuarioId, [FromBody] UploadUrlsRequest uploadUrlRequest, CancellationToken ct)
         {
             try
             {
-                var res = await svc.GenerateUploadUrlsAsync(usuarioId, req, ct);
+                var res = await svc.GenerateUploadUrlsAsync(usuarioId, uploadUrlRequest, ct);
                 return Ok(res);
             }
             catch (KeyNotFoundException) { return NotFound(new { message = "Usuário não encontrado." }); }
@@ -47,11 +47,11 @@ namespace VersopayBackend.Controllers
 
         [HttpPost("form-upload")]
         [RequestSizeLimit(30L * 1024 * 1024)]
-        public async Task<ActionResult<DocumentoResponseDto>> FormUpload(int usuarioId, [FromForm] DocumentoUploadDto form, CancellationToken ct)
+        public async Task<ActionResult<DocumentoResponseDto>> FormUpload(int usuarioId, [FromForm] DocumentoUploadDto documentUploadDto, CancellationToken ct)
         {
             try
             {
-                var res = await svc.FormUploadAsync(usuarioId, form, ct);
+                var res = await svc.FormUploadAsync(usuarioId, documentUploadDto, ct);
                 return Ok(res);
             }
             catch (KeyNotFoundException) { return NotFound(new { message = "Usuário não encontrado." }); }
