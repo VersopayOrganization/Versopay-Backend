@@ -21,11 +21,11 @@ namespace VersopayBackend.Services.Auth
             var usuario = await usuarioRepository.GetByEmailAsync(email, ct);
             if (usuario is null) return null;
 
-            var verifyHashPassword = hasher.VerifyHashedPassword(u, u.SenhaHash, dto.Senha);
+            var verifyHashPassword = hasher.VerifyHashedPassword(usuario, usuario.SenhaHash, dto.Senha);
             if (verifyHashPassword == PasswordVerificationResult.Failed) return null;
             if (verifyHashPassword == PasswordVerificationResult.SuccessRehashNeeded)
             {
-                u.SenhaHash = hasher.HashPassword(usuario, dto.Senha);
+                usuario.SenhaHash = hasher.HashPassword(usuario, dto.Senha);
                 await usuarioRepository.SaveChangesAsync(ct);
             }
 
