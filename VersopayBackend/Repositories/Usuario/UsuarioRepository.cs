@@ -6,7 +6,7 @@ namespace VersopayBackend.Repositories
 {
     public sealed class UsuarioRepository(AppDbContext db) : IUsuarioRepository
     {
-        // === EXISTENTES ===
+        // === existentes ===
         public Task<Usuario?> GetByEmailAsync(string email, CancellationToken ct) =>
             db.Usuarios.FirstOrDefaultAsync(u => u.Email == email, ct);
 
@@ -18,8 +18,14 @@ namespace VersopayBackend.Repositories
 
         public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 
-        // === NOVOS ===
-        public IQueryable<Usuario> QueryNoTracking() => db.Usuarios.AsNoTracking();
+        // === novos (consultas) ===
+        public Task<List<Usuario>> GetAllNoTrackingAsync(CancellationToken ct) =>
+            db.Usuarios.AsNoTracking()
+              .OrderByDescending(u => u.DataCriacao)
+              .ToListAsync(ct);
+
+        public Task<Usuario?> GetByIdNoTrackingAsync(int id, CancellationToken ct) =>
+            db.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken ct) =>
             db.Usuarios.AnyAsync(u => u.Email == email, ct);

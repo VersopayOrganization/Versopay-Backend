@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayBackend.Utils;
@@ -7,21 +6,20 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Services
 {
-    public sealed class UsuariosService(IUsuarioRepository repo) : IUsuariosService
+    public sealed class UsuariosService(IUsuarioRepository usuarioRepository) : IUsuariosService
     {
         public async Task<UsuarioResponseDto> CreateAsync(UsuarioCreateDto dto, CancellationToken ct)
         {
             var email = dto.Email.Trim().ToLowerInvariant();
 
-            // Duplicidades
-            if (await repo.EmailExistsAsync(email, ct))
+            if (await usuarioRepository.EmailExistsAsync(email, ct))
                 throw new InvalidOperationException("Email já cadastrado.");
 
             var digits = CpfCnpjUtils.Digits(dto.CpfCnpj);
             if (!CpfCnpjUtils.IsValidForTipo(digits, dto.TipoCadastro))
                 throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
 
-            if (await repo.CpfCnpjExistsAsync(digits, ct))
+            if (await usuarioRepository.CpfCnpjExistsAsync(digits, ct))
                 throw new InvalidOperationException("CPF/CNPJ já cadastrado.");
 
             var u = new Usuario
@@ -38,57 +36,41 @@ namespace VersopayBackend.Services
             var hasher = new PasswordHasher<Usuario>();
             u.SenhaHash = hasher.HashPassword(u, dto.Senha);
 
-            await repo.AddAsync(u, ct);
-            await repo.SaveChangesAsync(ct);
+            await usuarioRepository.AddAsync(u, ct);
+            await usuarioRepository.SaveChangesAsync(ct);
 
-            return MapToResponse(u);
+            return u.ToResponseDto();
         }
 
         public async Task<IEnumerable<UsuarioResponseDto>> GetAllAsync(CancellationToken ct)
         {
-            var q = repo.QueryNoTracking()
-                        .OrderByDescending(u => u.DataCriacao)
-                        .Select(u => new UsuarioResponseDto
-                        {
-                            Id = u.Id,
-                            Nome = u.Nome,
-                            Email = u.Email,
-                            TipoCadastro = u.TipoCadastro,
-                            Instagram = u.Instagram,
-                            Telefone = u.Telefone,
-                            CreatedAt = u.DataCriacao,
-                            CpfCnpj = u.CpfCnpj,
-                            IsAdmin = u.IsAdmin
-                        });
-
-            var list = await q.ToListAsync(ct);
+            var usuarios = await usuarioRepository.GetAllNoTrackingAsync(ct);
+            var list = usuarios.Select(u => u.ToResponseDto()).ToList();
             foreach (var i in list) i.CpfCnpjFormatado = CpfCnpjUtils.Mask(i.CpfCnpj);
             return list;
         }
 
         public async Task<UsuarioResponseDto?> GetByIdAsync(int id, CancellationToken ct)
         {
-            var u = await repo.QueryNoTracking()
-                              .FirstOrDefaultAsync(x => x.Id == id, ct);
+            var u = await usuarioRepository.GetByIdNoTrackingAsync(id, ct);
             if (u is null) return null;
 
-            var dto = MapToResponse(u);
+            var dto = u.ToResponseDto();
             dto.CpfCnpjFormatado = CpfCnpjUtils.Mask(dto.CpfCnpj);
             return dto;
         }
 
         public async Task<UsuarioResponseDto?> UpdateAsync(int id, UsuarioUpdateDto dto, CancellationToken ct)
         {
-            var u = await repo.FindByIdAsync(id, ct);
+            var u = await usuarioRepository.FindByIdAsync(id, ct);
             if (u is null) return null;
 
             var digits = CpfCnpjUtils.Digits(dto.CpfCnpj);
             if (!CpfCnpjUtils.IsValidForTipo(digits, dto.TipoCadastro))
                 throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
 
-            // se mudou o documento, garanta unicidade
             if (!string.Equals(u.CpfCnpj, digits, StringComparison.Ordinal) &&
-                await repo.CpfCnpjExistsAsync(digits, ct))
+                await usuarioRepository.CpfCnpjExistsAsync(digits, ct))
                 throw new InvalidOperationException("CPF/CNPJ já cadastrado.");
 
             u.Nome = dto.Nome.Trim();
@@ -99,24 +81,11 @@ namespace VersopayBackend.Services
             u.Telefone = dto.Telefone;
             u.DataAtualizacao = DateTime.UtcNow;
 
-            await repo.SaveChangesAsync(ct);
+            await usuarioRepository.SaveChangesAsync(ct);
 
-            var resp = MapToResponse(u);
+            var resp = u.ToResponseDto();
             resp.CpfCnpjFormatado = CpfCnpjUtils.Mask(resp.CpfCnpj);
             return resp;
         }
-
-        private static UsuarioResponseDto MapToResponse(Usuario u) => new()
-        {
-            Id = u.Id,
-            Nome = u.Nome,
-            Email = u.Email,
-            TipoCadastro = u.TipoCadastro,
-            Instagram = u.Instagram,
-            Telefone = u.Telefone,
-            CreatedAt = u.DataCriacao,
-            CpfCnpj = u.CpfCnpj,
-            IsAdmin = u.IsAdmin
-        };
     }
 }
