@@ -6,18 +6,18 @@ namespace VersopayBackend.Repositories
 {
     public sealed class DocumentoRepository(AppDbContext appDbContext) : IDocumentoRepository
     {
-        public Task<Usuario?> GetUsuarioAsync(int usuarioId, CancellationToken ct) =>
-            appDbContext.Usuarios.FirstOrDefaultAsync(u => u.Id == usuarioId, ct);
+        public Task<Usuario?> GetUsuarioAsync(int usuarioId, CancellationToken cancellationToken) =>
+            appDbContext.Usuarios.FirstOrDefaultAsync(usuario => usuario.Id == usuarioId, cancellationToken);
 
-        public async Task<Documento?> GetDocumentoAsync(int usuarioId, CancellationToken ct, bool track = true)
+        public async Task<Documento?> GetDocumentoAsync(int usuarioId, CancellationToken cancellationToken, bool track = true)
         {
-            var q = track ? appDbContext.Documentos : appDbContext.Documentos.AsNoTracking();
-            return await q.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId, ct);
+            var query = track ? appDbContext.Documentos : appDbContext.Documentos.AsNoTracking();
+            return await query.FirstOrDefaultAsync(documento => documento.UsuarioId == usuarioId, cancellationToken);
         }
 
-        public Task AddDocumentoAsync(Documento doc, CancellationToken ct) =>
-            appDbContext.Documentos.AddAsync(doc, ct).AsTask();
+        public Task AddDocumentoAsync(Documento documento, CancellationToken cancellationToken) =>
+            appDbContext.Documentos.AddAsync(documento, cancellationToken).AsTask();
 
-        public Task SaveChangesAsync(CancellationToken ct) => appDbContext.SaveChangesAsync(ct);
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);
     }
 }

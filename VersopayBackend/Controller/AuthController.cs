@@ -13,13 +13,13 @@ namespace VersopayBackend.Controllers
 
         [HttpPost("login")]
         [AllowAnonymous]
-        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto, CancellationToken ct)
+        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
             var result = await auth.LoginAsync(loginDto,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString(), ct);
+                Request.Headers.UserAgent.ToString(), cancellationToken);
 
             if (result is null) return Unauthorized(new { message = "Credenciais inválidas." });
 
@@ -29,14 +29,14 @@ namespace VersopayBackend.Controllers
 
         [HttpPost("refresh")]
         [AllowAnonymous]
-        public async Task<ActionResult<AuthResponseDto>> Refresh(CancellationToken ct)
+        public async Task<ActionResult<AuthResponseDto>> Refresh(CancellationToken cancellationToken)
         {
             var raw = Request.Cookies[RefreshCookieName];
             if (string.IsNullOrWhiteSpace(raw)) return Unauthorized();
 
             var result = await auth.RefreshAsync(raw,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString(), ct);
+                Request.Headers.UserAgent.ToString(), cancellationToken);
 
             if (result is null) return Unauthorized();
 
@@ -45,9 +45,9 @@ namespace VersopayBackend.Controllers
         }
 
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout(CancellationToken ct)
+        public async Task<IActionResult> Logout(CancellationToken cancellationToken)
         {
-            await auth.LogoutAsync(Request.Cookies[RefreshCookieName], ct);
+            await auth.LogoutAsync(Request.Cookies[RefreshCookieName], cancellationToken);
             Response.Cookies.Delete(RefreshCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
             return NoContent();
         }
