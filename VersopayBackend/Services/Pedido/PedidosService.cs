@@ -1,5 +1,6 @@
 ﻿using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
+using VersopayBackend.Utils;
 using VersopayLibrary.Enums;
 using VersopayLibrary.Models;
 
@@ -37,6 +38,7 @@ namespace VersopayBackend.Services
             {
                 Id = pedido.Id,
                 Criacao = pedido.Criacao,
+                CriacaoBr = TimeUtils.ToBrazilOffset(pedido.Criacao),
                 DataPagamento = pedido.DataPagamento,
                 MetodoPagamento = pedido.MetodoPagamento.ToString(),
                 Valor = pedido.Valor,
@@ -65,6 +67,7 @@ namespace VersopayBackend.Services
             {
                 Id = pedidoResponseDto.Id,
                 Criacao = pedidoResponseDto.Criacao,
+                CriacaoBr = TimeUtils.ToBrazilOffset(pedidoResponseDto.Criacao),
                 DataPagamento = pedidoResponseDto.DataPagamento,
                 MetodoPagamento = pedidoResponseDto.MetodoPagamento.ToString(),
                 Valor = pedidoResponseDto.Valor,
@@ -84,6 +87,7 @@ namespace VersopayBackend.Services
             {
                 Id = pedidoResponseDto.Id,
                 Criacao = pedidoResponseDto.Criacao,
+                CriacaoBr = TimeUtils.ToBrazilOffset(pedidoResponseDto.Criacao),
                 DataPagamento = pedidoResponseDto.DataPagamento,
                 MetodoPagamento = pedidoResponseDto.MetodoPagamento.ToString(),
                 Valor = pedidoResponseDto.Valor,
