@@ -11,6 +11,8 @@ using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
+using VersopayBackend.Services.KycKyb;
+using VersopayBackend.Services.KycKybFeature;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
@@ -66,6 +68,9 @@ builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IPedidosService, PedidosService>();
 
 builder.Services.AddScoped<INovaSenhaRepository, NovaSenhaRepository>();
+
+builder.Services.AddScoped<IKycKybRepository, KycKybRepository>();
+builder.Services.AddScoped<IKycKybService, KycKybService>();
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 //builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
