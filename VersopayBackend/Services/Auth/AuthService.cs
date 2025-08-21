@@ -176,11 +176,16 @@ namespace VersopayBackend.Services.Auth
                 redefinirSenhaRequest.NovaSenha != redefinirSenhaRequest.Confirmacao)
                 return false;
 
+            if (!ValidacaoPadraoSenha.IsValid(redefinirSenhaRequest.NovaSenha))
+                return false;
+
             var hash = refreshTokenService.Hash(redefinirSenhaRequest.Token);
             var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, cancellationToken);
-            if (hashUsuario is null || !hashUsuario.EstaAtivo(DateTimeBrazil.Now())) return false;
+            if (hashUsuario is null || !hashUsuario.EstaAtivo(DateTimeBrazil.Now()))
+                return false;
 
             var user = hashUsuario.Usuario;
+
             user.SenhaHash = hasher.HashPassword(user, redefinirSenhaRequest.NovaSenha);
             hashUsuario.DataTokenUsado = DateTimeBrazil.Now();
 
