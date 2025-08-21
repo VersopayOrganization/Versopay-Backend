@@ -10,6 +10,7 @@ namespace VersopayDatabase.Data
         public DbSet<Documento> Documentos => Set<Documento>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Pedido> Pedidos => Set<Pedido>();
+        public DbSet<NovaSenhaResetToken> NovaSenhaResetTokens => Set<NovaSenhaResetToken>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

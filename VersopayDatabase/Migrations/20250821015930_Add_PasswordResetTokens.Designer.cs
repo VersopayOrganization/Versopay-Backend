@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VersopayDatabase.Data;
 
@@ -11,9 +12,11 @@ using VersopayDatabase.Data;
 namespace VersopayDatabase.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250821015930_Add_PasswordResetTokens")]
+    partial class Add_PasswordResetTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -95,13 +98,10 @@ namespace VersopayDatabase.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("DataExpiracao")
+                    b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("DataSolicitacao")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DataTokenUsado")
+                    b.Property<DateTime>("ExpiraEmUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Ip")
@@ -110,6 +110,9 @@ namespace VersopayDatabase.Migrations
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UsadoEmUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserAgent")
                         .HasColumnType("nvarchar(max)");
