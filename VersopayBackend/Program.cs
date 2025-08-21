@@ -7,8 +7,10 @@ using System.Text;
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Repositories;
+using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
+using VersopayBackend.Services.Email;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
@@ -63,10 +65,13 @@ builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IPedidosService, PedidosService>();
 
+builder.Services.AddScoped<INovaSenhaRepository, NovaSenhaRepository>();
+
 builder.Services.AddSingleton<IClock, SystemClock>();
 //builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
 
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
