@@ -6,37 +6,37 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
-    public sealed class KycKybRepository(AppDbContext db) : IKycKybRepository
+    public sealed class KycKybRepository(AppDbContext appDbContext) : IKycKybRepository
     {
-        public Task AddAsync(KycKyb item, CancellationToken ct) =>
-            db.KycKybs.AddAsync(item, ct).AsTask();
+        public Task AdicionarAsync(KycKyb item, CancellationToken cancellationToken) =>
+            appDbContext.KycKybs.AddAsync(item, cancellationToken).AsTask();
 
-        public Task<KycKyb?> FindByIdAsync(int id, CancellationToken ct) =>
-            db.KycKybs.FirstOrDefaultAsync(x => x.Id == id, ct);
+        public Task<KycKyb?> AcharPeloIdAsync(int id, CancellationToken cancellationToken) =>
+            appDbContext.KycKybs.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        public Task<KycKyb?> GetByIdNoTrackingAsync(int id, CancellationToken ct) =>
-            db.KycKybs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        public Task<KycKyb?> PegarPeloIdNoTrackingAsync(int id, CancellationToken cancellationToken) =>
+            appDbContext.KycKybs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        public async Task<List<KycKyb>> GetAllAsync(
+        public async Task<List<KycKyb>> PegarTodosAsync(
             int? usuarioId,
             StatusKycKyb? status,
             int page,
             int pageSize,
-            CancellationToken ct)
+            CancellationToken cancellationToken)
         {
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 200) pageSize = 20;
 
-            var q = db.KycKybs.AsNoTracking().AsQueryable();
-            if (usuarioId.HasValue) q = q.Where(x => x.UsuarioId == usuarioId.Value);
-            if (status.HasValue) q = q.Where(x => x.Status == status.Value);
+            var query = appDbContext.KycKybs.AsNoTracking().AsQueryable();
+            if (usuarioId.HasValue) query = query.Where(x => x.UsuarioId == usuarioId.Value);
+            if (status.HasValue) query = query.Where(x => x.Status == status.Value);
 
-            return await q.OrderByDescending(x => x.Id)
+            return await query.OrderByDescending(x => x.Id)
                           .Skip((page - 1) * pageSize)
                           .Take(pageSize)
-                          .ToListAsync(ct);
+                          .ToListAsync(cancellationToken);
         }
 
-        public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);
     }
 }

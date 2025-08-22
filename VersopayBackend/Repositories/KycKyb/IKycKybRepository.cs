@@ -6,15 +6,15 @@ namespace VersopayBackend.Repositories
 {
     public interface IKycKybRepository
     {
-        Task AddAsync(KycKyb item, CancellationToken ct);
-        Task<KycKyb?> FindByIdAsync(int id, CancellationToken ct);
-        Task<KycKyb?> GetByIdNoTrackingAsync(int id, CancellationToken ct);
-        Task<List<KycKyb>> GetAllAsync(
+        Task AdicionarAsync(KycKyb item, CancellationToken cancellationToken);
+        Task<KycKyb?> AcharPeloIdAsync(int id, CancellationToken cancellationToken);
+        Task<KycKyb?> PegarPeloIdNoTrackingAsync(int id, CancellationToken cancellationToken);
+        Task<List<KycKyb>> PegarTodosAsync(
             int? usuarioId,
             StatusKycKyb? status,
             int page,
             int pageSize,
-            CancellationToken ct);
-        Task SaveChangesAsync(CancellationToken ct);
+            CancellationToken cancellationToken);
+        Task SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

@@ -11,41 +11,41 @@ namespace VersopayBackend.Controllers
     public class KycKybController(IKycKybService svc) : ControllerBase
     {
         [HttpPost]
-        public async Task<ActionResult<KycKybResponseDto>> Create([FromBody] KycKybCreateDto kycKybCreateDto, CancellationToken cancellationToken)
+        public async Task<ActionResult<KycKybResponseDto>> Criar([FromBody] KycKybCreateDto kycKybCreateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
             {
-                var res = await svc.CreateAsync(kycKybCreateDto, cancellationToken);
-                return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
+                var res = await svc.CriarAsync(kycKybCreateDto, cancellationToken);
+                return CreatedAtAction(nameof(PegarPeloId), new { id = res.Id }, res);
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<KycKybResponseDto>>> GetAll(
+        public async Task<ActionResult<IEnumerable<KycKybResponseDto>>> PegarTodos(
             [FromQuery] int? usuarioId,
             [FromQuery] string? status,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             CancellationToken cancellationToken = default)
         {
-            var res = await svc.GetAllAsync(usuarioId, status, page, pageSize, cancellationToken);
+            var res = await svc.PegarTodosAsync(usuarioId, status, page, pageSize, cancellationToken);
             return Ok(res);
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<KycKybResponseDto>> GetById(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult<KycKybResponseDto>> PegarPeloId(int id, CancellationToken cancellationToken)
         {
-            var res = await svc.GetByIdAsync(id, cancellationToken);
+            var res = await svc.PegarPeloIdAsync(id, cancellationToken);
             return res is null ? NotFound() : Ok(res);
         }
 
         [HttpPut("{id:int}/status")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] KycKybStatusUpdateDto kycKybCreateDto, CancellationToken cancellationToken)
+        public async Task<IActionResult> AtualizarStatus(int id, [FromBody] KycKybStatusUpdateDto kycKybCreateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            var ok = await svc.UpdateStatusAsync(id, kycKybCreateDto, cancellationToken);
+            var ok = await svc.AtualizarStatusAsync(id, kycKybCreateDto, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 

@@ -19,79 +19,79 @@ namespace VersopayBackend.Services.KycKybFeature
             _usuarioRepo = usuarioRepo;
         }
 
-        public async Task<KycKybResponseDto> CreateAsync(KycKybCreateDto dto, CancellationToken ct)
+        public async Task<KycKybResponseDto> CriarAsync(KycKybCreateDto kycKybCreateDto, CancellationToken cancellationToken)
         {
-            var u = await _usuarioRepo.GetByIdNoTrackingAsync(dto.UsuarioId, ct)
+            var usuarioRepo = await _usuarioRepo.GetByIdNoTrackingAsync(kycKybCreateDto.UsuarioId, cancellationToken)
                      ?? throw new ArgumentException("UsuarioId inválido.");
 
             var item = new KycKybModel
             {
-                UsuarioId = u.Id,
-                Status = dto.Status,
-                CpfCnpj = u.CpfCnpj, // snapshot
-                Nome = u.Nome,       // snapshot
-                NumeroDocumento = dto.NumeroDocumento,
-                DataAprovacao = dto.Status == StatusKycKyb.Aprovado ? DateTime.UtcNow : null
+                UsuarioId = usuarioRepo.Id,
+                Status = kycKybCreateDto.Status,
+                CpfCnpj = usuarioRepo.CpfCnpj, // snapshot
+                Nome = usuarioRepo.Nome,       // snapshot
+                NumeroDocumento = kycKybCreateDto.NumeroDocumento,
+                DataAprovacao = kycKybCreateDto.Status == StatusKycKyb.Aprovado ? DateTime.UtcNow : null
             };
 
-            await _kycRepo.AddAsync(item, ct);
-            await _kycRepo.SaveChangesAsync(ct);
+            await _kycRepo.AdicionarAsync(item, cancellationToken);
+            await _kycRepo.SaveChangesAsync(cancellationToken);
 
             return Map(item);
         }
 
-        public async Task<IEnumerable<KycKybResponseDto>> GetAllAsync(int? usuarioId, string? status, int page, int pageSize, CancellationToken ct)
+        public async Task<IEnumerable<KycKybResponseDto>> PegarTodosAsync(int? usuarioId, string? status, int page, int pageSize, CancellationToken cancellationToken)
         {
-            StatusKycKyb? st = null;
+            StatusKycKyb? statusKycKyb = null;
             if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse(status, true, out StatusKycKyb parsed))
-                st = parsed;
+                statusKycKyb = parsed;
 
-            var list = await _kycRepo.GetAllAsync(usuarioId, st, page, pageSize, ct);
-            return list.Select(MapWithMask);
+            var list = await _kycRepo.PegarTodosAsync(usuarioId, statusKycKyb, page, pageSize, cancellationToken);
+            return list.Select(MapearComMascara);
         }
 
-        public async Task<KycKybResponseDto?> GetByIdAsync(int id, CancellationToken ct)
+        public async Task<KycKybResponseDto?> PegarPeloIdAsync(int id, CancellationToken cancellationToken)
         {
-            var item = await _kycRepo.GetByIdNoTrackingAsync(id, ct);
-            return item is null ? null : MapWithMask(item);
+            var item = await _kycRepo.PegarPeloIdNoTrackingAsync(id, cancellationToken);
+            return item is null ? null : MapearComMascara(item);
         }
 
-        public async Task<bool> UpdateStatusAsync(int id, KycKybStatusUpdateDto dto, CancellationToken ct)
+        public async Task<bool> AtualizarStatusAsync(int id, KycKybStatusUpdateDto kycKybStatusUpdateDto, CancellationToken cancellationToken)
         {
-            var item = await _kycRepo.FindByIdAsync(id, ct);
+            var item = await _kycRepo.AcharPeloIdAsync(id, cancellationToken);
             if (item is null) return false;
 
-            item.Status = dto.Status;
-            item.DataAprovacao = dto.Status == StatusKycKyb.Aprovado
+            item.Status = kycKybStatusUpdateDto.Status;
+            item.DataAprovacao = kycKybStatusUpdateDto.Status == StatusKycKyb.Aprovado
                 ? (item.DataAprovacao ?? DateTime.UtcNow)
                 : null;
 
-            await _kycRepo.SaveChangesAsync(ct);
+            await _kycRepo.SaveChangesAsync(cancellationToken);
             return true;
         }
 
-        public Task<bool> AprovarAsync(int id, CancellationToken ct) =>
-            UpdateStatusAsync(id, new KycKybStatusUpdateDto { Status = StatusKycKyb.Aprovado }, ct);
+        public Task<bool> AprovarAsync(int id, CancellationToken cancellationToken) =>
+            AtualizarStatusAsync(id, new KycKybStatusUpdateDto { Status = StatusKycKyb.Aprovado }, cancellationToken);
 
-        public Task<bool> ReprovarAsync(int id, CancellationToken ct) =>
-            UpdateStatusAsync(id, new KycKybStatusUpdateDto { Status = StatusKycKyb.Reprovado }, ct);
+        public Task<bool> ReprovarAsync(int id, CancellationToken cancellationToken) =>
+            AtualizarStatusAsync(id, new KycKybStatusUpdateDto { Status = StatusKycKyb.Reprovado }, cancellationToken);
 
-        private static KycKybResponseDto Map(KycKybModel x) => new()
+        private static KycKybResponseDto Map(KycKybModel kycKybModel) => new()
         {
-            Id = x.Id,
-            UsuarioId = x.UsuarioId,
-            Status = x.Status,
-            CpfCnpj = x.CpfCnpj,
-            Nome = x.Nome,
-            NumeroDocumento = x.NumeroDocumento,
-            DataAprovacao = x.DataAprovacao
+            Id = kycKybModel.Id,
+            UsuarioId = kycKybModel.UsuarioId,
+            Status = kycKybModel.Status,
+            CpfCnpj = kycKybModel.CpfCnpj,
+            Nome = kycKybModel.Nome,
+            NumeroDocumento = kycKybModel.NumeroDocumento,
+            DataAprovacao = kycKybModel.DataAprovacao
         };
 
-        private static KycKybResponseDto MapWithMask(KycKybModel x)
+        private static KycKybResponseDto MapearComMascara(KycKybModel kycKybModel)
         {
-            var dto = Map(x);
-            dto.CpfCnpjFormatado = CpfCnpjUtils.Mask(dto.CpfCnpj);
-            return dto;
+            var kycKybResponseDto = Map(kycKybModel);
+            kycKybResponseDto.CpfCnpjFormatado = CpfCnpjUtils.Mask(kycKybResponseDto.CpfCnpj);
+            return kycKybResponseDto;
         }
     }
 }
