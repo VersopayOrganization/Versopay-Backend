@@ -74,6 +74,7 @@ builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IPedidosService, PedidosService>();
 builder.Services.AddScoped<INovaSenhaRepository, NovaSenhaRepository>();
+builder.Services.AddScoped<IUsuarioSenhaHistoricoRepository, UsuarioSenhaHistoricoRepository>();
 
 builder.Services.AddScoped<IKycKybRepository, KycKybRepository>();
 builder.Services.AddScoped<IKycKybService, KycKybService>();

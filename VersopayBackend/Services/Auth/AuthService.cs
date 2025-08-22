@@ -4,6 +4,7 @@ using VersopayBackend.Common;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
+using VersopayBackend.Repositories.NovaSenha.UsuarioSenhaHistorico;
 using VersopayBackend.Services.Email;
 using VersopayBackend.Utils;
 using VersopayLibrary.Models;
@@ -20,7 +21,8 @@ namespace VersopayBackend.Services.Auth
         ILogger<AuthService> logger,
         INovaSenhaRepository novaSenhaRepository,
         IEmailEnvioService emailEnvio,
-        IConfiguration configuration) : IAuthService
+        IConfiguration configuration,
+        IUsuarioSenhaHistoricoRepository usuarioSenhaHistoricoRepository) : IAuthService
     {
         public async Task<AuthResult?> LoginAsync(LoginDto dto, string? ip, string? userAgent, CancellationToken ct)
         {
@@ -186,8 +188,24 @@ namespace VersopayBackend.Services.Auth
 
             var user = hashUsuario.Usuario;
 
+            var historicos = await usuarioSenhaHistoricoRepository.GetByUsuarioAsync(user.Id, cancellationToken);
+            foreach (var hist in historicos)
+            {
+                var result = hasher.VerifyHashedPassword(user, hist.SenhaHash, redefinirSenhaRequest.NovaSenha);
+                if (result == PasswordVerificationResult.Success)
+                    return false;
+            }
+
             user.SenhaHash = hasher.HashPassword(user, redefinirSenhaRequest.NovaSenha);
             hashUsuario.DataTokenUsado = DateTimeBrazil.Now();
+
+            await usuarioSenhaHistoricoRepository.AddAsync(new UsuarioSenhaHistorico
+            {
+                Id = Guid.NewGuid(),
+                UsuarioId = user.Id,
+                SenhaHash = user.SenhaHash,
+                DataCriacao = DateTimeBrazil.Now()
+            }, cancellationToken);
 
             await novaSenhaRepository.SaveChangesAsync(cancellationToken);
             return true;
