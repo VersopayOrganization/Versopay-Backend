@@ -11,12 +11,12 @@ namespace VersopayBackend.Controllers
     public class KycKybController(IKycKybService svc) : ControllerBase
     {
         [HttpPost]
-        public async Task<ActionResult<KycKybResponseDto>> Create([FromBody] KycKybCreateDto dto, CancellationToken ct)
+        public async Task<ActionResult<KycKybResponseDto>> Create([FromBody] KycKybCreateDto kycKybCreateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
             {
-                var res = await svc.CreateAsync(dto, ct);
+                var res = await svc.CreateAsync(kycKybCreateDto, cancellationToken);
                 return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
@@ -28,38 +28,38 @@ namespace VersopayBackend.Controllers
             [FromQuery] string? status,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
-            CancellationToken ct = default)
+            CancellationToken cancellationToken = default)
         {
-            var res = await svc.GetAllAsync(usuarioId, status, page, pageSize, ct);
+            var res = await svc.GetAllAsync(usuarioId, status, page, pageSize, cancellationToken);
             return Ok(res);
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<KycKybResponseDto>> GetById(int id, CancellationToken ct)
+        public async Task<ActionResult<KycKybResponseDto>> GetById(int id, CancellationToken cancellationToken)
         {
-            var res = await svc.GetByIdAsync(id, ct);
+            var res = await svc.GetByIdAsync(id, cancellationToken);
             return res is null ? NotFound() : Ok(res);
         }
 
         [HttpPut("{id:int}/status")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] KycKybStatusUpdateDto dto, CancellationToken ct)
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] KycKybStatusUpdateDto kycKybCreateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            var ok = await svc.UpdateStatusAsync(id, dto, ct);
+            var ok = await svc.UpdateStatusAsync(id, kycKybCreateDto, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 
         [HttpPost("{id:int}/aprovar")]
-        public async Task<IActionResult> Aprovar(int id, CancellationToken ct)
+        public async Task<IActionResult> Aprovar(int id, CancellationToken cancellationToken)
         {
-            var ok = await svc.AprovarAsync(id, ct);
+            var ok = await svc.AprovarAsync(id, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 
         [HttpPost("{id:int}/reprovar")]
-        public async Task<IActionResult> Reprovar(int id, CancellationToken ct)
+        public async Task<IActionResult> Reprovar(int id, CancellationToken cancellationToken)
         {
-            var ok = await svc.ReprovarAsync(id, ct);
+            var ok = await svc.ReprovarAsync(id, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
     }
