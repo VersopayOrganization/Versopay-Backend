@@ -11,6 +11,8 @@ namespace VersopayDatabase.Data
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Pedido> Pedidos => Set<Pedido>();
         public DbSet<NovaSenhaResetToken> NovaSenhaResetTokens => Set<NovaSenhaResetToken>();
+        public DbSet<KycKyb> KycKybs => Set<KycKyb>();
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -95,6 +97,33 @@ namespace VersopayDatabase.Data
             pedido.HasIndex(x => x.VendedorId);
             pedido.HasIndex(x => new { x.Status, x.Criacao });
             pedido.HasIndex(x => x.MetodoPagamento);
+
+            var kycKyb = modelBuilder.Entity<KycKyb>();
+            kycKyb.HasKey(x => x.Id);
+
+            kycKyb.Property(x => x.Status).IsRequired();
+
+            kycKyb.Property(x => x.CpfCnpj)
+             .HasMaxLength(14)
+             .IsRequired();
+
+            kycKyb.Property(x => x.Nome)
+             .HasMaxLength(120)
+             .IsRequired();
+
+            kycKyb.Property(x => x.NumeroDocumento)
+             .HasMaxLength(64);
+
+            kycKyb.Property(x => x.DataAprovacao); // datetime2 null
+
+            kycKyb.HasOne(x => x.Usuario)
+             .WithMany() // deixe sem coleção, ou crie ICollection<KycKyb> no Usuario se quiser
+             .HasForeignKey(x => x.UsuarioId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // índices úteis
+            kycKyb.HasIndex(x => x.UsuarioId);
+            kycKyb.HasIndex(x => new { x.Status, x.UsuarioId });
         }
     }
 }

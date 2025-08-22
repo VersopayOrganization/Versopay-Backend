@@ -11,6 +11,8 @@ using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
+using VersopayBackend.Services.KycKyb;
+using VersopayBackend.Services.KycKybFeature;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
@@ -20,17 +22,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Blob (deixe comentado por enquanto; ative quando for usar Azure Blob Storage)
-//var blobConn = builder.Configuration.GetConnectionString("BlobStorage")
-//    ?? throw new InvalidOperationException("Faltou ConnectionStrings:BlobStorage no appsettings.");
-//builder.Services.AddSingleton(new BlobServiceClient(blobConn));
-//builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
-
 // JWT
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
-
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -49,26 +44,41 @@ builder.Services
         };
     });
 
+// CORS (dev)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsDev", p =>
+        p.WithOrigins(
+            "http://localhost:4200",
+            "https://localhost:4200",
+            "http://127.0.0.1:4200",
+            "https://127.0.0.1:4200"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials() // << necessário para cookies cross-site
+    );
+});
+
 builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 
+// DI (removi duplicata de IUsuarioRepository)
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.AddScoped<IDocumentoRepository, DocumentoRepository>();
 builder.Services.AddScoped<IDocumentosService, DocumentosService>();
-
-builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
-
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IPedidosService, PedidosService>();
-
 builder.Services.AddScoped<INovaSenhaRepository, NovaSenhaRepository>();
 
+builder.Services.AddScoped<IKycKybRepository, KycKybRepository>();
+builder.Services.AddScoped<IKycKybService, KycKybService>();
+
 builder.Services.AddSingleton<IClock, SystemClock>();
-//builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
@@ -107,9 +117,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// (1) Roteamento explícito ajuda a garantir ordem do middleware com endpoint routing
+app.UseRouting();
+
+// (2) CORS ANTES de Auth/Authorization
+app.UseCors("CorsDev");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+// (3) Anexe a policy aos endpoints (garante CORS nos pré-flights/404 etc.)
+app.MapControllers().RequireCors("CorsDev");
 
 app.Run();
