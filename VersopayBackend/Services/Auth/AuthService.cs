@@ -4,7 +4,6 @@ using VersopayBackend.Common;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
-using VersopayBackend.Repositories.NovaSenha.UsuarioSenhaHistorico;
 using VersopayBackend.Services.Email;
 using VersopayBackend.Utils;
 using VersopayLibrary.Models;
