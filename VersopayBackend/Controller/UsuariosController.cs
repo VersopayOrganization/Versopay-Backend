@@ -8,17 +8,29 @@ namespace VersopayBackend.Controllers
     [Route("api/[controller]")]
     public class UsuariosController(IUsuariosService usuarioService) : ControllerBase
     {
-        [HttpPost]
-        public async Task<ActionResult<UsuarioResponseDto>> Create([FromBody] UsuarioCreateDto usuarioCreateDto, CancellationToken cancellationToken)
+        [HttpPost("cadastro-inicial")]
+        public async Task<ActionResult<UsuarioResponseDto>> CadastroInicial([FromBody] UsuarioCreateDto usuarioCreateDto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
             {
-                var response = await usuarioService.CreateAsync(usuarioCreateDto, cancellationToken);
+                var response = await usuarioService.CadastroInicialAsync(usuarioCreateDto, cancellationToken);
                 return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
             }
-            catch (InvalidOperationException exception) { return Conflict(new { message = exception.Message }); } // email/cpfcnpj duplicado
-            catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); } // validação PF/PJ/CPF/CNPJ
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        }
+
+        [HttpPut("{id:int}/completar-cadastro")]
+        public async Task<ActionResult<UsuarioResponseDto>> CompletarCadastro([FromBody] UsuarioCompletarCadastroDto usuarioCompletarCadastroDto, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid) return ValidationProblem(ModelState);
+            try
+            {
+                var response = await usuarioService.CompletarCadastroAsync(usuarioCompletarCadastroDto, cancellationToken);
+                return response is null ? NotFound() : Ok(response);
+            }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
         }
 
         [HttpGet]

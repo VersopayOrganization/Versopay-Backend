@@ -8,38 +8,55 @@ namespace VersopayBackend.Services
 {
     public sealed class UsuariosService(IUsuarioRepository usuarioRepository) : IUsuariosService
     {
-        public async Task<UsuarioResponseDto> CreateAsync(UsuarioCreateDto usuarioCreatedto, CancellationToken cancellationToken)
+        public async Task<UsuarioResponseDto> CadastroInicialAsync(UsuarioCreateDto dto, CancellationToken cancellationToken)
         {
-            var email = usuarioCreatedto.Email.Trim().ToLowerInvariant();
+            var email = dto.Email.Trim().ToLowerInvariant();
 
             if (await usuarioRepository.EmailExistsAsync(email, cancellationToken))
                 throw new InvalidOperationException("Email já cadastrado.");
 
-            var digits = CpfCnpjUtils.Digits(usuarioCreatedto.CpfCnpj);
-            if (!CpfCnpjUtils.IsValidForTipo(digits, usuarioCreatedto.TipoCadastro))
-                throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
-
-            if (await usuarioRepository.CpfCnpjExistsAsync(digits, cancellationToken))
-                throw new InvalidOperationException("CPF/CNPJ já cadastrado.");
-
-            var u = new Usuario
+            var usuario = new Usuario
             {
-                Nome = usuarioCreatedto.Nome.Trim(),
+                Nome = dto.Nome.Trim(),
                 Email = email,
-                TipoCadastro = usuarioCreatedto.TipoCadastro,
-                CpfCnpj = digits,
-                Instagram = string.IsNullOrWhiteSpace(usuarioCreatedto.Instagram) ? null :
-                            (usuarioCreatedto.Instagram.StartsWith("@") ? usuarioCreatedto.Instagram.Trim() : "@" + usuarioCreatedto.Instagram.Trim()),
-                Telefone = usuarioCreatedto.Telefone
+                Instagram = null,
+                Telefone = null
             };
 
             var hasher = new PasswordHasher<Usuario>();
-            u.SenhaHash = hasher.HashPassword(u, usuarioCreatedto.Senha);
+            usuario.SenhaHash = hasher.HashPassword(usuario, dto.Senha);
 
-            await usuarioRepository.AddAsync(u, cancellationToken);
+            await usuarioRepository.AddAsync(usuario, cancellationToken);
             await usuarioRepository.SaveChangesAsync(cancellationToken);
 
-            return u.ToResponseDto();
+            return usuario.ToResponseDto();
+        }
+
+        public async Task<UsuarioResponseDto?> CompletarCadastroAsync(UsuarioCompletarCadastroDto usuarioCompletarCadastroDto, CancellationToken cancellationToken)
+        {
+            var usuario = await usuarioRepository.FindByIdAsync(usuarioCompletarCadastroDto.Id, cancellationToken);
+            if (usuario is null) return null;
+
+            var digits = CpfCnpjUtils.Digits(usuarioCompletarCadastroDto.CpfCnpj!);
+            if (!CpfCnpjUtils.IsValidForTipo(digits, usuarioCompletarCadastroDto.TipoCadastro))
+                throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
+
+            if (await usuarioRepository.CpfCnpjExistsAsync(digits, cancellationToken) &&
+                !string.Equals(usuario.CpfCnpj, digits, StringComparison.Ordinal))
+                throw new InvalidOperationException("CPF/CNPJ já cadastrado.");
+
+            usuario.TipoCadastro = usuarioCompletarCadastroDto.TipoCadastro;
+            usuario.CpfCnpj = digits;
+            usuario.Instagram = string.IsNullOrWhiteSpace(usuarioCompletarCadastroDto.Instagram) ? null :
+                (usuarioCompletarCadastroDto.Instagram.StartsWith("@") ? usuarioCompletarCadastroDto.Instagram.Trim() : "@" + usuarioCompletarCadastroDto.Instagram.Trim());
+            usuario.Telefone = usuarioCompletarCadastroDto.Telefone;
+            usuario.DataAtualizacao = DateTime.UtcNow;
+
+            await usuarioRepository.SaveChangesAsync(cancellationToken);
+
+            var response = usuario.ToResponseDto();
+            response.CpfCnpjFormatado = CpfCnpjUtils.Mask(response.CpfCnpj);
+            return response;
         }
 
         public async Task<IEnumerable<UsuarioResponseDto>> GetAllAsync(CancellationToken cancellationToken)
