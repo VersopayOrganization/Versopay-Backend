@@ -84,6 +84,11 @@ builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
 
+
+builder.Services.AddScoped<IAntecipacaoRepository, AntecipacaoRepository>();
+builder.Services.AddScoped<IAntecipacoesService, AntecipacoesService>();
+
+
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
