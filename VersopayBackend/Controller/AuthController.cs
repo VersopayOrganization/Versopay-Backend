@@ -11,6 +11,7 @@ namespace VersopayBackend.Controllers
     public class AuthController(IAuthService auth) : ControllerBase
     {
         const string RefreshCookieName = "rtkn";
+        const string BypassCookieName = "bptkn";
 
         [HttpPost("login")]
         [AllowAnonymous]
@@ -18,13 +19,31 @@ namespace VersopayBackend.Controllers
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
-            var result = await auth.LoginAsync(loginDto,
+            // lê cookie do device (trusted device / bypass)
+            var bypassRaw = Request.Cookies[BypassCookieName];
+
+            var result = await auth.LoginAsync(
+                loginDto,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString(), cancellationToken);
+                Request.Headers.UserAgent.ToString(),
+                bypassRaw,                    
+                cancellationToken
+            );
 
             if (result is null) return Unauthorized(new { message = "Credenciais inválidas." });
 
             SetRefreshCookie(result.RefreshRaw, result.RefreshExpiresUtc);
+
+            // Se o service gerou um novo bypass, seta o cookie do device
+            if (auth is AuthService concrete)
+            {
+                var pending = concrete.ConsumePendingBypassCookie();
+                if (pending is not null)
+                {
+                    SetBypassCookie(pending.Value.Raw, pending.Value.Exp);
+                }
+            }
+
             return Ok(result.Response);
         }
 
@@ -50,6 +69,8 @@ namespace VersopayBackend.Controllers
         {
             await auth.LogoutAsync(Request.Cookies[RefreshCookieName], cancellationToken);
             Response.Cookies.Delete(RefreshCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
+            // opcional: também remover bypass ao sair deste dispositivo
+            // Response.Cookies.Delete(BypassCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
             return NoContent();
         }
 
@@ -57,8 +78,6 @@ namespace VersopayBackend.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> EsqueciSenha([FromBody] SenhaEsquecidaRequest senhaEsquecidaRequest, CancellationToken cancellationToken)
         {
-            var resetBaseUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host + "/reset";
-
             await auth.ResetSenhaRequestAsync(
                 senhaEsquecidaRequest,
                 baseResetUrl: string.Empty,
@@ -84,9 +103,52 @@ namespace VersopayBackend.Controllers
             return ok ? NoContent() : BadRequest(new { message = "Token inválido/expirado ou senhas não conferem." });
         }
 
+        [Authorize]
+        [HttpPost("device/start")]
+        public async Task<ActionResult<DeviceTrustChallengeDto>> StartDeviceTrust(CancellationToken ct)
+        {
+            var userId = int.Parse(User.FindFirst("sub")!.Value);
+            var dto = await auth.StartDeviceTrustAsync(userId,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Request.Headers.UserAgent.ToString(), ct);
+            return Ok(dto);
+        }
+
+        [Authorize]
+        [HttpPost("device/confirm")]
+        public async Task<IActionResult> ConfirmDeviceTrust([FromBody] DeviceTrustConfirmRequest req, CancellationToken ct)
+        {
+            var result = await auth.ConfirmDeviceTrustAsync(req.ChallengeId, req.Code,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Request.Headers.UserAgent.ToString(), ct);
+
+            if (result is null) return BadRequest(new { message = "Código inválido ou challenge expirado." });
+
+            // setar o cookie bptkn
+            Response.Cookies.Append("bptkn", result.Value.Raw, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = result.Value.Exp
+            });
+            return NoContent();
+        }
+
         private void SetRefreshCookie(string rawToken, DateTime expiresUtc)
         {
             Response.Cookies.Append(RefreshCookieName, rawToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = expiresUtc
+            });
+        }
+
+        private void SetBypassCookie(string rawToken, DateTime expiresUtc)
+        {
+            Response.Cookies.Append(BypassCookieName, rawToken, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,

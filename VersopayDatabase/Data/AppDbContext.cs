@@ -13,6 +13,9 @@ namespace VersopayDatabase.Data
         public DbSet<NovaSenhaResetToken> NovaSenhaResetTokens => Set<NovaSenhaResetToken>();
         public DbSet<KycKyb> KycKybs => Set<KycKyb>();
         public DbSet<UsuarioSenhaHistorico> UsuarioSenhasHistorico { get; set; }
+        public DbSet<BypassToken> BypassTokens => Set<BypassToken>();
+        public DbSet<DeviceTrustChallenge> DeviceTrustChallenges => Set<DeviceTrustChallenge>();
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -134,6 +137,31 @@ namespace VersopayDatabase.Data
             // índices úteis
             kycKyb.HasIndex(x => x.UsuarioId);
             kycKyb.HasIndex(x => new { x.Status, x.UsuarioId });
+
+            var bypassToken = modelBuilder.Entity<BypassToken>();
+            bypassToken.HasKey(x => x.Id);
+            bypassToken.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            bypassToken.HasIndex(x => x.TokenHash).IsUnique();
+            bypassToken.Property(x => x.Ip).HasMaxLength(64);
+            bypassToken.Property(x => x.UserAgent).HasMaxLength(200);
+            bypassToken.Property(x => x.Dispositivo).HasMaxLength(80);
+
+            bypassToken.HasOne(x => x.Usuario)
+              .WithMany()
+              .HasForeignKey(x => x.UsuarioId)
+              .OnDelete(DeleteBehavior.Cascade);
+
+            bypassToken.HasIndex(x => new { x.UsuarioId, x.RevogadoEmUtc, x.ExpiraEmUtc });
+
+            // OnModelCreating:
+            var deviceTrust = modelBuilder.Entity<DeviceTrustChallenge>();
+            deviceTrust.HasKey(x => x.Id);
+            deviceTrust.Property(x => x.CodeHash).HasMaxLength(128).IsRequired();
+            deviceTrust.Property(x => x.Ip).HasMaxLength(64);
+            deviceTrust.Property(x => x.UserAgent).HasMaxLength(200);
+            deviceTrust.Property(x => x.Dispositivo).HasMaxLength(80);
+            deviceTrust.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+            deviceTrust.HasIndex(x => new { x.UsuarioId, x.Used, x.ExpiresAtUtc });
         }
     }
 }

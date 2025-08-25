@@ -84,6 +84,12 @@ builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
 
+builder.Services.AddScoped<IBypassTokenRepository, BypassTokenRepository>();
+
+builder.Services.AddScoped<IDeviceTrustChallengeRepository, DeviceTrustChallengeRepository>();
+
+
+
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
