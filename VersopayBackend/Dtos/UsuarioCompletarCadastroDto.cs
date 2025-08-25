@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using VersopayLibrary.Models;
+using Tipo = VersopayLibrary.Models.TipoCadastro; // << alias p/ o TIPO, evita colisão
+
 
 namespace VersopayBackend.Dtos
 {
@@ -8,10 +10,10 @@ namespace VersopayBackend.Dtos
         public int Id { get; set; }
 
         [Required]
-        public TipoCadastro TipoCadastro { get; set; }
+        public Tipo TipoCadastro { get; set; }
 
         [Required, MaxLength(20)]
-        public string CpfCnpj { get; set; }
+        public string? CpfCnpj { get; set; }
 
         [MaxLength(80)]
         public string? Instagram { get; set; }
@@ -22,9 +24,9 @@ namespace VersopayBackend.Dtos
         public IEnumerable<ValidationResult> Validate(ValidationContext _)
         {
             var digits = new string((CpfCnpj ?? "").Where(char.IsDigit).ToArray());
-            if (TipoCadastro == TipoCadastro.PF && digits.Length != 11)
+            if (TipoCadastro == Tipo.PF && digits.Length != 11)
                 yield return new("CPF deve ter 11 dígitos.", new[] { nameof(CpfCnpj) });
-            if (TipoCadastro == TipoCadastro.PJ && digits.Length != 14)
+            if (TipoCadastro == Tipo.PJ && digits.Length != 14)
                 yield return new("CNPJ deve ter 14 dígitos.", new[] { nameof(CpfCnpj) });
         }
     }

@@ -21,16 +21,26 @@ namespace VersopayDatabase.Data
 
             var usuario = modelBuilder.Entity<Usuario>();
             usuario.HasKey(x => x.Id);
+
             usuario.Property(x => x.Nome).HasMaxLength(120).IsRequired();
             usuario.Property(x => x.Email).HasMaxLength(160).IsRequired();
             usuario.Property(x => x.SenhaHash).IsRequired();
-            usuario.Property(x => x.CpfCnpj).HasMaxLength(14).IsRequired();
-            usuario.HasIndex(x => x.Email).IsUnique();
-            usuario.HasIndex(x => x.CpfCnpj).IsUnique();
+            // enum nullable -> int? no banco
+            usuario.Property(x => x.TipoCadastro).HasConversion<int?>();
+            // CPF/CNPJ opcional no cadastro inicial
+            usuario.Property(x => x.CpfCnpj).HasMaxLength(14); // sem .IsRequired()
             usuario.Property(x => x.IsAdmin).HasDefaultValue(false);
+            // índices
+            usuario.HasIndex(x => x.Email).IsUnique();
+            // unicidade do documento só quando houver valor
+            usuario.HasIndex(x => x.CpfCnpj).IsUnique().HasFilter("[CpfCnpj] IS NOT NULL"); // SQL Server
+
+            // regra por tipo, mas permitindo o estado "inicial" (ambos nulos)
             usuario.ToTable(t => t.HasCheckConstraint(
                 "CK_Usuarios_CpfCnpj_Tipo",
-                "( (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14) )"
+                "((TipoCadastro IS NULL AND [CpfCnpj] IS NULL) " +
+                "OR (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) " +
+                "OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14))"
             ));
 
             var documento = modelBuilder.Entity<Documento>();

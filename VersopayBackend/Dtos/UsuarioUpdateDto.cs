@@ -7,7 +7,7 @@ namespace VersopayBackend.Dtos
     {
         [Required, MaxLength(120)] public string Nome { get; set; } = default!;
         [Required] public TipoCadastro TipoCadastro { get; set; }
-        [Required] public string CpfCnpj { get; set; } = default!;
+        [Required] public string? CpfCnpj { get; set; } = default!;
         [MaxLength(80)] public string? Instagram { get; set; }
         [MaxLength(20)] public string? Telefone { get; set; }
 
