@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
 using VersopayBackend.Services;
+using static VersopayBackend.Dtos.PasswordResetDtos;
 
 namespace VersopayBackend.Controllers
 {
@@ -57,6 +59,43 @@ namespace VersopayBackend.Controllers
                 return response is null ? NotFound() : Ok(response);
             }
             catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
+        }
+
+        [HttpPost("esqueci-senha")]
+        [AllowAnonymous]
+        public async Task<IActionResult> EsqueciSenha([FromBody] SenhaEsquecidaRequest senhaEsquecidaRequest, CancellationToken cancellationToken)
+        {
+            var baseResetUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host + "/reset";
+
+            var link = await usuarioService.ResetSenhaRequestAsync(
+                senhaEsquecidaRequest,
+                baseResetUrl,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Request.Headers.UserAgent.ToString(),
+                cancellationToken);
+
+            //TODO: QUANDO TIVERMOS O ENVIO POR EMAIL, NAO PODEMOS RETORNAR O LINK NO ENDPOINT! Deverá ser descomentado essa linha de baixo
+            //return NoContent();
+
+            //E removido essa linha
+            return Ok(new { resetLink = link });
+
+        }
+
+        [HttpGet("resetar-senha/validar")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ValidarResetToken([FromQuery] string token, CancellationToken cancellationToken)
+        {
+            var ok = await usuarioService.ValidarTokenResetSenhaAsync(token, cancellationToken);
+            return ok ? Ok() : BadRequest(new { message = "Token inválido ou expirado." });
+        }
+
+        [HttpPost("resetar-senha")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetarSenha([FromBody] RedefinirSenhaRequest redefinirSenhaRequest, CancellationToken cancellationToken)
+        {
+            var ok = await usuarioService.ResetSenhaAsync(redefinirSenhaRequest, cancellationToken);
+            return ok ? NoContent() : BadRequest(new { message = "Token inválido/expirado ou senhas não conferem." });
         }
     }
 }
