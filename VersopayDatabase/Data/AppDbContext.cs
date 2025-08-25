@@ -12,7 +12,7 @@ namespace VersopayDatabase.Data
         public DbSet<Pedido> Pedidos => Set<Pedido>();
         public DbSet<NovaSenhaResetToken> NovaSenhaResetTokens => Set<NovaSenhaResetToken>();
         public DbSet<KycKyb> KycKybs => Set<KycKyb>();
-
+        public DbSet<UsuarioSenhaHistorico> UsuarioSenhasHistorico { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

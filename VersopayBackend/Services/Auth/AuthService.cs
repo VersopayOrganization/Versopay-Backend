@@ -20,7 +20,8 @@ namespace VersopayBackend.Services.Auth
         ILogger<AuthService> logger,
         INovaSenhaRepository novaSenhaRepository,
         IEmailEnvioService emailEnvio,
-        IConfiguration configuration) : IAuthService
+        IConfiguration configuration,
+        IUsuarioSenhaHistoricoRepository usuarioSenhaHistoricoRepository) : IAuthService
     {
         public async Task<AuthResult?> LoginAsync(LoginDto dto, string? ip, string? userAgent, CancellationToken ct)
         {
@@ -176,13 +177,34 @@ namespace VersopayBackend.Services.Auth
                 redefinirSenhaRequest.NovaSenha != redefinirSenhaRequest.Confirmacao)
                 return false;
 
+            if (!ValidacaoPadraoSenha.IsValido(redefinirSenhaRequest.NovaSenha))
+                return false;
+
             var hash = refreshTokenService.Hash(redefinirSenhaRequest.Token);
             var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, cancellationToken);
-            if (hashUsuario is null || !hashUsuario.EstaAtivo(DateTimeBrazil.Now())) return false;
+            if (hashUsuario is null || !hashUsuario.EstaAtivo(DateTimeBrazil.Now()))
+                return false;
 
             var user = hashUsuario.Usuario;
+
+            var historicos = await usuarioSenhaHistoricoRepository.GetByUsuarioAsync(user.Id, cancellationToken);
+            foreach (var hist in historicos)
+            {
+                var result = hasher.VerifyHashedPassword(user, hist.SenhaHash, redefinirSenhaRequest.NovaSenha);
+                if (result == PasswordVerificationResult.Success)
+                    return false;
+            }
+
             user.SenhaHash = hasher.HashPassword(user, redefinirSenhaRequest.NovaSenha);
             hashUsuario.DataTokenUsado = DateTimeBrazil.Now();
+
+            await usuarioSenhaHistoricoRepository.AddAsync(new UsuarioSenhaHistorico
+            {
+                Id = Guid.NewGuid(),
+                UsuarioId = user.Id,
+                SenhaHash = user.SenhaHash,
+                DataCriacao = DateTimeBrazil.Now()
+            }, cancellationToken);
 
             await novaSenhaRepository.SaveChangesAsync(cancellationToken);
             return true;
