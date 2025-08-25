@@ -177,7 +177,7 @@ namespace VersopayBackend.Services.Auth
                 redefinirSenhaRequest.NovaSenha != redefinirSenhaRequest.Confirmacao)
                 return false;
 
-            if (!ValidacaoPadraoSenha.IsValid(redefinirSenhaRequest.NovaSenha))
+            if (!ValidacaoPadraoSenha.IsValido(redefinirSenhaRequest.NovaSenha))
                 return false;
 
             var hash = refreshTokenService.Hash(redefinirSenhaRequest.Token);

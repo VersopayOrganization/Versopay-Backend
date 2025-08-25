@@ -22,7 +22,7 @@ namespace VersopayBackend.Dtos
             if (!string.Equals(Senha, ConfirmarSenha, StringComparison.Ordinal))
                 yield return new ValidationResult("Senha e confirmação não conferem.", new[] { nameof(ConfirmarSenha) });
 
-             if (!ValidacaoPadraoSenha.IsValid(Senha)) yield return new ValidationResult("Regra de senha inválida");
+             if (!ValidacaoPadraoSenha.IsValido(Senha)) yield return new ValidationResult("Regra de senha inválida");
         }
     }
 }
