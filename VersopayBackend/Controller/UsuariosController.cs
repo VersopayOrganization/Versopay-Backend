@@ -65,7 +65,7 @@ namespace VersopayBackend.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> EsqueciSenha([FromBody] SenhaEsquecidaRequest senhaEsquecidaRequest, CancellationToken cancellationToken)
         {
-            var baseResetUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host + "/reset";
+            var baseResetUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host + "/auth/redefinir-senha";
 
             var link = await usuarioService.ResetSenhaRequestAsync(
                 senhaEsquecidaRequest,
@@ -95,7 +95,7 @@ namespace VersopayBackend.Controllers
         public async Task<IActionResult> ResetarSenha([FromBody] RedefinirSenhaRequest redefinirSenhaRequest, CancellationToken cancellationToken)
         {
             var ok = await usuarioService.ResetSenhaAsync(redefinirSenhaRequest, cancellationToken);
-            return ok ? NoContent() : BadRequest(new { message = "Token inválido/expirado ou senhas não conferem." });
+            return ok ? Ok(new {message = "Senha redefinida com sucesso."}) : BadRequest(new { message = "Token inválido/expirado ou senhas não conferem." });
         }
     }
 }
