@@ -129,12 +129,12 @@ namespace VersopayBackend.Services.Auth
             }
         }
 
-        public async Task ResetSenhaRequestAsync(SenhaEsquecidaRequest senhaEsquecidaRequest, string baseResetUrl, string? ip, string? userAgent, CancellationToken cancellationToken)
+        public async Task<string> ResetSenhaRequestAsync(SenhaEsquecidaRequest senhaEsquecidaRequest, string baseResetUrl, string ip, string userAgent, CancellationToken cancellationToken)
         {
             var email = senhaEsquecidaRequest.Email.Trim().ToLowerInvariant();
             var user = await usuarioRepository.GetByEmailAsync(email, cancellationToken);
 
-            if (user is null) return;
+            if (user is null) return "";
 
             await novaSenhaRepository.InvalidateUserTokensAsync(user.Id, cancellationToken);
 
@@ -160,6 +160,9 @@ namespace VersopayBackend.Services.Auth
             var link = $"{resetBase}?token={Uri.EscapeDataString(raw)}";
 
             await emailEnvio.EnvioResetSenhaAsync(user.Email, user.Nome, link, cancellationToken);
+
+            //TODO: QUANDO TIVERMOS O ENVIO POR EMAIL, NAO PODEMOS RETORNAR O LINK NO ENDPOINT! Deverá ser removido essa linha de baixo
+            return link;
         }
 
         public async Task<bool> ValidarTokenResetSenhaAsync(string rawToken, CancellationToken cancellationToken)

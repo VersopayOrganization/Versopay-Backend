@@ -19,8 +19,6 @@ namespace VersopayBackend.Services
             {
                 Nome = usuarioCreateDto.Nome.Trim(),
                 Email = email
-                //Instagram = null,
-                //Telefone = null
             };
 
             var hasher = new PasswordHasher<Usuario>();
