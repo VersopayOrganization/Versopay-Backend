@@ -90,7 +90,7 @@ namespace VersopayBackend.Services.KycKybFeature
         private static KycKybResponseDto MapearComMascara(KycKybModel kycKybModel)
         {
             var kycKybResponseDto = Map(kycKybModel);
-            kycKybResponseDto.CpfCnpjFormatado = CpfCnpjUtils.Mask(kycKybResponseDto.CpfCnpj);
+            kycKybResponseDto.CpfCnpjFormatado = CpfCnpjUtils.Mascara(kycKybResponseDto.CpfCnpj);
             return kycKybResponseDto;
         }
     }

@@ -6,7 +6,7 @@
         private const int Max = 70;
         private static readonly char[] Specials = "!@#$%&".ToCharArray();
 
-        public static bool IsValid(string? pwd)
+        public static bool IsValido(string? pwd)
         {
             if (string.IsNullOrWhiteSpace(pwd)) return false;
             if (pwd.Length < Min || pwd.Length > Max) return false;

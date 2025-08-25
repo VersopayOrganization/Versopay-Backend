@@ -15,8 +15,8 @@ namespace VersopayBackend.Services
             if (await usuarioRepository.EmailExistsAsync(email, cancellationToken))
                 throw new InvalidOperationException("Email já cadastrado.");
 
-            var digits = CpfCnpjUtils.Digits(usuarioCreatedto.CpfCnpj);
-            if (!CpfCnpjUtils.IsValidForTipo(digits, usuarioCreatedto.TipoCadastro))
+            var digits = CpfCnpjUtils.ValidarQtdDigitos(usuarioCreatedto.CpfCnpj);
+            if (!CpfCnpjUtils.IsValidoTipo(digits, usuarioCreatedto.TipoCadastro))
                 throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
 
             if (await usuarioRepository.CpfCnpjExistsAsync(digits, cancellationToken))
@@ -46,7 +46,7 @@ namespace VersopayBackend.Services
         {
             var usuarios = await usuarioRepository.GetAllNoTrackingAsync(cancellationToken);
             var usuariosLista = usuarios.Select(usuario => usuario.ToResponseDto()).ToList();
-            foreach (var usuario in usuariosLista) usuario.CpfCnpjFormatado = CpfCnpjUtils.Mask(usuario.CpfCnpj);
+            foreach (var usuario in usuariosLista) usuario.CpfCnpjFormatado = CpfCnpjUtils.Mascara(usuario.CpfCnpj);
             return usuariosLista;
         }
 
@@ -56,7 +56,7 @@ namespace VersopayBackend.Services
             if (usuario is null) return null;
 
             var usuarioResposedto = usuario.ToResponseDto();
-            usuarioResposedto.CpfCnpjFormatado = CpfCnpjUtils.Mask(usuarioResposedto.CpfCnpj);
+            usuarioResposedto.CpfCnpjFormatado = CpfCnpjUtils.Mascara(usuarioResposedto.CpfCnpj);
             return usuarioResposedto;
         }
 
@@ -65,8 +65,8 @@ namespace VersopayBackend.Services
             var usuario = await usuarioRepository.FindByIdAsync(id, cancellationToken);
             if (usuario is null) return null;
 
-            var digits = CpfCnpjUtils.Digits(usuarioResposedto.CpfCnpj);
-            if (!CpfCnpjUtils.IsValidForTipo(digits, usuarioResposedto.TipoCadastro))
+            var digits = CpfCnpjUtils.ValidarQtdDigitos(usuarioResposedto.CpfCnpj);
+            if (!CpfCnpjUtils.IsValidoTipo(digits, usuarioResposedto.TipoCadastro))
                 throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
 
             if (!string.Equals(usuario.CpfCnpj, digits, StringComparison.Ordinal) &&
@@ -84,7 +84,7 @@ namespace VersopayBackend.Services
             await usuarioRepository.SaveChangesAsync(cancellationToken);
 
             var response = usuario.ToResponseDto();
-            response.CpfCnpjFormatado = CpfCnpjUtils.Mask(response.CpfCnpj);
+            response.CpfCnpjFormatado = CpfCnpjUtils.Mascara(response.CpfCnpj);
             return response;
         }
     }
