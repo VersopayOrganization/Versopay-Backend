@@ -8,23 +8,23 @@ namespace VersopayBackend.Services
 {
     public sealed class UsuariosService(IUsuarioRepository usuarioRepository) : IUsuariosService
     {
-        public async Task<UsuarioResponseDto> CadastroInicialAsync(UsuarioCreateDto dto, CancellationToken cancellationToken)
+        public async Task<UsuarioResponseDto> CadastroInicialAsync(UsuarioCreateDto usuarioCreateDto, CancellationToken cancellationToken)
         {
-            var email = dto.Email.Trim().ToLowerInvariant();
+            var email = usuarioCreateDto.Email.Trim().ToLowerInvariant();
 
             if (await usuarioRepository.EmailExistsAsync(email, cancellationToken))
                 throw new InvalidOperationException("Email já cadastrado.");
 
             var usuario = new Usuario
             {
-                Nome = dto.Nome.Trim(),
+                Nome = usuarioCreateDto.Nome.Trim(),
                 Email = email,
                 Instagram = null,
                 Telefone = null
             };
 
             var hasher = new PasswordHasher<Usuario>();
-            usuario.SenhaHash = hasher.HashPassword(usuario, dto.Senha);
+            usuario.SenhaHash = hasher.HashPassword(usuario, usuarioCreateDto.Senha);
 
             await usuarioRepository.AddAsync(usuario, cancellationToken);
             await usuarioRepository.SaveChangesAsync(cancellationToken);
