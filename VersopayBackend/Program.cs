@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
+using VersopayBackend.Options;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Services;
@@ -26,6 +27,9 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
+
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

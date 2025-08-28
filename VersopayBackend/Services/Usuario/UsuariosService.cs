@@ -115,39 +115,34 @@ namespace VersopayBackend.Services
             return response;
         }
 
-        public async Task<string> ResetSenhaRequestAsync(SenhaEsquecidaRequest senhaEsquecidaRequest, string baseResetUrl, string ip, string userAgent, CancellationToken cancellationToken)
+        public async Task<string> ResetSenhaRequestAsync(SenhaEsquecidaRequest senhaEsquecidaRequest, string baseResetUrl, string? ip, string? userAgent, CancellationToken cancellationToken)
         {
             var email = senhaEsquecidaRequest.Email.Trim().ToLowerInvariant();
             var user = await usuarioRepository.GetByEmailAsync(email, cancellationToken);
-
             if (user is null) return "";
 
             await novaSenhaRepository.InvalidateUserTokensAsync(user.Id, cancellationToken);
 
-            var horarioAtual = DateTimeBrazil.Now();
-            var horarioExpiracao = horarioAtual.AddMinutes(30);
+            var agora = DateTimeBrazil.Now();
+            var expira = agora.AddMinutes(30);
 
-            var (raw, hash, expiracao) = refreshTokenService.Create(TimeSpan.FromMinutes(30));
+            var (raw, hash, _) = refreshTokenService.Create(TimeSpan.FromMinutes(30));
             await novaSenhaRepository.AddAsync(new NovaSenhaResetToken
             {
                 UsuarioId = user.Id,
                 TokenHash = hash,
-                DataSolicitacao = horarioAtual,
-                DataExpiracao = horarioExpiracao,
+                DataSolicitacao = agora,
+                DataExpiracao = expira,
                 Ip = ip,
                 UserAgent = userAgent
             }, cancellationToken);
 
             await novaSenhaRepository.SaveChangesAsync(cancellationToken);
 
-            var resetBase = string.IsNullOrWhiteSpace(baseResetUrl)
-                ? configuration["Frontend:ResetUrl"] ?? "http://localhost:4200/auth/reset"
-                : baseResetUrl;
-            var link = $"{resetBase}?token={Uri.EscapeDataString(raw)}";
+            var link = $"{baseResetUrl}?token={Uri.EscapeDataString(raw)}";
 
             await emailEnvio.EnvioResetSenhaAsync(user.Email, user.Nome, link, cancellationToken);
 
-            //TODO: QUANDO TIVERMOS O ENVIO POR EMAIL, NAO PODEMOS RETORNAR O LINK NO ENDPOINT! Deverá ser removido essa linha de baixo
             return link;
         }
 
