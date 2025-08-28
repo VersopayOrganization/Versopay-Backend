@@ -7,62 +7,62 @@ using VersopayBackend.Common; // IClock
 
 namespace VersopayBackend.Services
 {
-    public sealed class AntecipacoesService(IAntecipacaoRepository repo, IClock clock) : IAntecipacoesService
+    public sealed class AntecipacoesService(IAntecipacaoRepository iAntecipacaoRepository, IClock clock) : IAntecipacoesService
     {
-        public async Task<AntecipacaoResponseDto> CreateAsync(AntecipacaoCreateDto dto, CancellationToken ct)
+        public async Task<AntecipacaoResponseDto> CreateAsync(AntecipacaoCreateDto antecipacaoCreateDto, CancellationToken cancellationToken)
         {
-            if (!await repo.UsuarioExistsAsync(dto.EmpresaId, ct))
+            if (!await iAntecipacaoRepository.UsuarioExistsAsync(antecipacaoCreateDto.EmpresaId, cancellationToken))
                 throw new ArgumentException("EmpresaId inválido.");
 
-            if (dto.Valor <= 0m)
+            if (antecipacaoCreateDto.Valor <= 0m)
                 throw new ArgumentException("Valor deve ser maior que zero.");
 
             var a = new Antecipacao
             {
-                EmpresaId = dto.EmpresaId,
+                EmpresaId = antecipacaoCreateDto.EmpresaId,
                 Status = StatusAntecipacao.PendenteFila,
                 DataSolicitacao = clock.UtcNow, // UTC
-                Valor = dto.Valor
+                Valor = antecipacaoCreateDto.Valor
             };
 
-            await repo.AddAsync(a, ct);
-            await repo.SaveChangesAsync(ct);
+            await iAntecipacaoRepository.AddAsync(a, cancellationToken);
+            await iAntecipacaoRepository.SaveChangesAsync(cancellationToken);
 
             // carregar Empresa para nome (opcional)
-            var full = await repo.GetByIdNoTrackingAsync(a.Id, ct) ?? a;
+            var full = await iAntecipacaoRepository.GetByIdNoTrackingAsync(a.Id, cancellationToken) ?? a;
             return full.ToResponseDto();
         }
 
         public async Task<IEnumerable<AntecipacaoResponseDto>> GetAllAsync(
-            int? empresaId, string? status, DateTime? deUtc, DateTime? ateUtc, int page, int pageSize, CancellationToken ct)
+            int? empresaId, string? status, DateTime? deUtc, DateTime? ateUtc, int page, int pageSize, CancellationToken cancellationToken)
         {
-            StatusAntecipacao? st = null;
+            StatusAntecipacao? statusAntecipacao = null;
             if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse(status, true, out StatusAntecipacao parsed))
-                st = parsed;
+                statusAntecipacao = parsed;
 
-            var list = await repo.GetAllAsync(empresaId, st, deUtc, ateUtc, page, pageSize, ct);
+            var list = await iAntecipacaoRepository.GetAllAsync(empresaId, statusAntecipacao, deUtc, ateUtc, page, pageSize, cancellationToken);
             return list.Select(x => x.ToResponseDto());
         }
 
-        public async Task<AntecipacaoResponseDto?> GetByIdAsync(int id, CancellationToken ct)
+        public async Task<AntecipacaoResponseDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
         {
-            var item = await repo.GetByIdNoTrackingAsync(id, ct);
+            var item = await iAntecipacaoRepository.GetByIdNoTrackingAsync(id, cancellationToken);
             return item is null ? null : item.ToResponseDto();
         }
 
-        public async Task<bool> UpdateStatusAsync(int id, AntecipacaoStatusUpdateDto dto, CancellationToken ct)
+        public async Task<bool> UpdateStatusAsync(int id, AntecipacaoStatusUpdateDto antecipacaoStatusUpdateDto, CancellationToken cancellationToken)
         {
-            var item = await repo.FindByIdAsync(id, ct);
+            var item = await iAntecipacaoRepository.FindByIdAsync(id, cancellationToken);
             if (item is null) return false;
 
             // Regras simples de transição
             if (item.Status is StatusAntecipacao.Concluido or StatusAntecipacao.Cancelado)
                 throw new InvalidOperationException("Não é possível alterar o status de uma antecipação já concluída/cancelada.");
 
-            if (dto.Status == item.Status) return true;
+            if (antecipacaoStatusUpdateDto.Status == item.Status) return true;
 
-            item.Status = dto.Status;
-            await repo.SaveChangesAsync(ct);
+            item.Status = antecipacaoStatusUpdateDto.Status;
+            await iAntecipacaoRepository.SaveChangesAsync(cancellationToken);
             return true;
         }
     }

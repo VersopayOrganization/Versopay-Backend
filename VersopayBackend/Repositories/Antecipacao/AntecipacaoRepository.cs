@@ -5,22 +5,22 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
-    public sealed class AntecipacaoRepository(AppDbContext db) : IAntecipacaoRepository
+    public sealed class AntecipacaoRepository(AppDbContext appDbContext) : IAntecipacaoRepository
     {
-        public Task AddAsync(Antecipacao a, CancellationToken ct)
-            => db.Antecipacoes.AddAsync(a, ct).AsTask();
+        public Task AddAsync(Antecipacao antecipacao, CancellationToken cancellationToken)
+            => appDbContext.Antecipacoes.AddAsync(antecipacao, cancellationToken).AsTask();
 
-        public Task<Antecipacao?> FindByIdAsync(int id, CancellationToken ct)
-            => db.Antecipacoes.Include(x => x.Empresa).FirstOrDefaultAsync(x => x.Id == id, ct);
+        public Task<Antecipacao?> FindByIdAsync(int id, CancellationToken cancellationToken)
+            => appDbContext.Antecipacoes.Include(x => x.Empresa).FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        public Task<Antecipacao?> GetByIdNoTrackingAsync(int id, CancellationToken ct)
-            => db.Antecipacoes.AsNoTracking().Include(x => x.Empresa).FirstOrDefaultAsync(x => x.Id == id, ct);
+        public Task<Antecipacao?> GetByIdNoTrackingAsync(int id, CancellationToken cancellationToken)
+            => appDbContext.Antecipacoes.AsNoTracking().Include(x => x.Empresa).FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         public async Task<List<Antecipacao>> GetAllAsync(
             int? empresaId,
             StatusAntecipacao? status,
-            DateTime? deUtc,
-            DateTime? ateUtc,
+            DateTime? dataInicio,
+            DateTime? dataFim,
             int page,
             int pageSize,
             CancellationToken ct)
@@ -28,11 +28,11 @@ namespace VersopayBackend.Repositories
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 200) pageSize = 20;
 
-            var q = db.Antecipacoes.AsNoTracking().Include(x => x.Empresa).AsQueryable();
+            var q = appDbContext.Antecipacoes.AsNoTracking().Include(x => x.Empresa).AsQueryable();
             if (empresaId.HasValue) q = q.Where(x => x.EmpresaId == empresaId.Value);
             if (status.HasValue) q = q.Where(x => x.Status == status.Value);
-            if (deUtc.HasValue) q = q.Where(x => x.DataSolicitacao >= deUtc.Value);
-            if (ateUtc.HasValue) q = q.Where(x => x.DataSolicitacao < ateUtc.Value);
+            if (dataInicio.HasValue) q = q.Where(x => x.DataSolicitacao >= dataInicio.Value);
+            if (dataFim.HasValue) q = q.Where(x => x.DataSolicitacao < dataFim.Value);
 
             return await q.OrderByDescending(x => x.Id)
                           .Skip((page - 1) * pageSize)
@@ -41,9 +41,9 @@ namespace VersopayBackend.Repositories
         }
 
         public Task<bool> UsuarioExistsAsync(int usuarioId, CancellationToken ct)
-            => db.Usuarios.AnyAsync(u => u.Id == usuarioId, ct);
+            => appDbContext.Usuarios.AnyAsync(u => u.Id == usuarioId, ct);
 
         public Task SaveChangesAsync(CancellationToken ct)
-            => db.SaveChangesAsync(ct);
+            => appDbContext.SaveChangesAsync(ct);
     }
 }

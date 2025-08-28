@@ -5,14 +5,14 @@ namespace VersopayBackend.Utils
 {
     public static class AntecipacaoMappingExtensions
     {
-        public static AntecipacaoResponseDto ToResponseDto(this Antecipacao x) => new()
+        public static AntecipacaoResponseDto ToResponseDto(this Antecipacao antecipacao) => new()
         {
-            Id = x.Id,
-            EmpresaId = x.EmpresaId,
-            EmpresaNome = x.Empresa?.Nome, // pode vir nulo se não incluído
-            Status = x.Status,
-            DataSolicitacao = x.DataSolicitacao,
-            Valor = x.Valor
+            Id = antecipacao.Id,
+            EmpresaId = antecipacao.EmpresaId,
+            EmpresaNome = antecipacao.Empresa?.Nome,
+            Status = antecipacao.Status,
+            DataSolicitacao = antecipacao.DataSolicitacao,
+            Valor = antecipacao.Valor
         };
     }
 }
