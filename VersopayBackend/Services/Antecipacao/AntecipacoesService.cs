@@ -17,7 +17,7 @@ namespace VersopayBackend.Services
             if (antecipacaoCreateDto.Valor <= 0m)
                 throw new ArgumentException("Valor deve ser maior que zero.");
 
-            var a = new Antecipacao
+            var antecipacao = new Antecipacao
             {
                 EmpresaId = antecipacaoCreateDto.EmpresaId,
                 Status = StatusAntecipacao.PendenteFila,
@@ -25,11 +25,11 @@ namespace VersopayBackend.Services
                 Valor = antecipacaoCreateDto.Valor
             };
 
-            await iAntecipacaoRepository.AddAsync(a, cancellationToken);
+            await iAntecipacaoRepository.AddAsync(antecipacao, cancellationToken);
             await iAntecipacaoRepository.SaveChangesAsync(cancellationToken);
 
             // carregar Empresa para nome (opcional)
-            var full = await iAntecipacaoRepository.GetByIdNoTrackingAsync(a.Id, cancellationToken) ?? a;
+            var full = await iAntecipacaoRepository.GetByIdNoTrackingAsync(antecipacao.Id, cancellationToken) ?? antecipacao;
             return full.ToResponseDto();
         }
 
