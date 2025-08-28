@@ -87,7 +87,7 @@ namespace VersopayBackend.Controllers
         public async Task<IActionResult> ValidarResetToken([FromQuery] string token, CancellationToken cancellationToken)
         {
             var ok = await usuarioService.ValidarTokenResetSenhaAsync(token, cancellationToken);
-            return ok ? Ok() : BadRequest(new { message = "Token inválido ou expirado." });
+            return ok ? Ok(new { message = "Token válido" }) : BadRequest(new { message = "Token inválido ou expirado." });
         }
 
         [HttpPost("resetar-senha")]
