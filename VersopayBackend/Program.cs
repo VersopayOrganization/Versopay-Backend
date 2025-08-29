@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
+using VersopayBackend.Options;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Services;
@@ -26,6 +27,9 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
+
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -64,6 +68,9 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
+
 // DI (removi duplicata de IUsuarioRepository)
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -84,6 +91,8 @@ builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
 
+builder.Services.AddScoped<IBypassTokenRepository, BypassTokenRepository>();
+builder.Services.AddScoped<IDeviceTrustChallengeRepository, DeviceTrustChallengeRepository>();
 
 builder.Services.AddScoped<IAntecipacaoRepository, AntecipacaoRepository>();
 builder.Services.AddScoped<IAntecipacoesService, AntecipacoesService>();
@@ -122,6 +131,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 // (1) Roteamento explícito ajuda a garantir ordem do middleware com endpoint routing
 app.UseRouting();

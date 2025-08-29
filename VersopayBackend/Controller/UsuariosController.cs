@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Azure.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
 using VersopayBackend.Services;
@@ -63,9 +64,12 @@ namespace VersopayBackend.Controllers
 
         [HttpPost("esqueci-senha")]
         [AllowAnonymous]
-        public async Task<IActionResult> EsqueciSenha([FromBody] SenhaEsquecidaRequest senhaEsquecidaRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> EsqueciSenha(
+        [FromBody] SenhaEsquecidaRequest senhaEsquecidaRequest,
+        [FromServices] IConfiguration config,
+        CancellationToken cancellationToken)
         {
-            var baseResetUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host + "/auth/redefinir-senha";
+            var baseResetUrl = config["Frontend:ResetUrl"];
 
             var link = await usuarioService.ResetSenhaRequestAsync(
                 senhaEsquecidaRequest,
@@ -74,15 +78,10 @@ namespace VersopayBackend.Controllers
                 Request.Headers.UserAgent.ToString(),
                 cancellationToken);
 
-            //TODO: QUANDO TIVERMOS O ENVIO POR EMAIL, NAO PODEMOS RETORNAR O LINK NO ENDPOINT! Deverá ser descomentado essa linha de baixo
-            //return NoContent();
-
-            //E removido essa linha
             return Ok(new { resetLink = link });
-
         }
 
-        [HttpGet("resetar-senha/validar")]
+    [HttpGet("resetar-senha/validar")]
         [AllowAnonymous]
         public async Task<IActionResult> ValidarResetToken([FromQuery] string token, CancellationToken cancellationToken)
         {

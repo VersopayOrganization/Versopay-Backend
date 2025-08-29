@@ -15,5 +15,6 @@ namespace VersopayBackend.Repositories
         Task<bool> CpfCnpjExistsAsync(string cpfCnpjDigits, CancellationToken cancellationToken);
         Task<Usuario?> FindByIdAsync(int id, CancellationToken cancellationToken);
         Task AddAsync(Usuario usuario, CancellationToken cancellationToken);
+        Task<Usuario?> GetByIdAsync(int id, CancellationToken cancellationToken);
     }
 }
