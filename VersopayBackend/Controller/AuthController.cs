@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
 using VersopayBackend.Services.Auth;
-using static VersopayBackend.Dtos.PasswordResetDtos;
 
 namespace VersopayBackend.Controllers
 {
@@ -71,67 +70,6 @@ namespace VersopayBackend.Controllers
             Response.Cookies.Delete(RefreshCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
             // opcional: também remover bypass ao sair deste dispositivo
             // Response.Cookies.Delete(BypassCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
-            return NoContent();
-        }
-
-        [HttpPost("esqueci-senha")]
-        [AllowAnonymous]
-        public async Task<IActionResult> EsqueciSenha([FromBody] SenhaEsquecidaRequest senhaEsquecidaRequest, CancellationToken cancellationToken)
-        {
-            await auth.ResetSenhaRequestAsync(
-                senhaEsquecidaRequest,
-                baseResetUrl: string.Empty,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString(),
-                cancellationToken);
-            return NoContent();
-        }
-
-        [HttpGet("resetar-senha/validar")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ValidarResetToken([FromQuery] string token, CancellationToken cancellationToken)
-        {
-            var ok = await auth.ValidarTokenResetSenhaAsync(token, cancellationToken);
-            return ok ? Ok() : BadRequest(new { message = "Token inválido ou expirado." });
-        }
-
-        [HttpPost("resetar-senha")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ResetarSenha([FromBody] RedefinirSenhaRequest redefinirSenhaRequest, CancellationToken cancellationToken)
-        {
-            var ok = await auth.ResetSenhaAsync(redefinirSenhaRequest, cancellationToken);
-            return ok ? NoContent() : BadRequest(new { message = "Token inválido/expirado ou senhas não conferem." });
-        }
-
-        [Authorize]
-        [HttpPost("device/start")]
-        public async Task<ActionResult<DeviceTrustChallengeDto>> StartDeviceTrust(CancellationToken ct)
-        {
-            var userId = int.Parse(User.FindFirst("sub")!.Value);
-            var dto = await auth.StartDeviceTrustAsync(userId,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString(), ct);
-            return Ok(dto);
-        }
-
-        [Authorize]
-        [HttpPost("device/confirm")]
-        public async Task<IActionResult> ConfirmDeviceTrust([FromBody] DeviceTrustConfirmRequest req, CancellationToken ct)
-        {
-            var result = await auth.ConfirmDeviceTrustAsync(req.ChallengeId, req.Code,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString(), ct);
-
-            if (result is null) return BadRequest(new { message = "Código inválido ou challenge expirado." });
-
-            // setar o cookie bptkn
-            Response.Cookies.Append("bptkn", result.Value.Raw, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = result.Value.Exp
-            });
             return NoContent();
         }
 
