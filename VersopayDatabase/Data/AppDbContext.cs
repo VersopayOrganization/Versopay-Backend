@@ -14,6 +14,7 @@ namespace VersopayDatabase.Data
         public DbSet<KycKyb> KycKybs => Set<KycKyb>();
         public DbSet<UsuarioSenhaHistorico> UsuarioSenhasHistorico { get; set; }
         public DbSet<Antecipacao> Antecipacoes => Set<Antecipacao>();
+        public DbSet<Webhook> Webhooks => Set<Webhook>();
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -157,6 +158,20 @@ namespace VersopayDatabase.Data
             antecipacao.HasIndex(x => x.EmpresaId);
             antecipacao.HasIndex(x => x.Status);
             antecipacao.HasIndex(x => new { x.Status, x.DataSolicitacao });
+
+            var webhook = modelBuilder.Entity<Webhook>();
+            webhook.HasKey(x => x.Id);
+            webhook.Property(x => x.Url).HasMaxLength(500).IsRequired();
+            webhook.Property(x => x.Ativo).HasDefaultValue(true);
+            webhook.Property(x => x.Secret).HasMaxLength(128);
+
+            // converte enum flags para int
+            webhook.Property(x => x.Eventos)
+                   .HasConversion<int>()
+                   .IsRequired();
+
+            webhook.HasIndex(x => x.Ativo);
+            webhook.HasIndex(x => x.Eventos);
 
         }
     }

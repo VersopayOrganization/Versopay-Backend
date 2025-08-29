@@ -8,11 +8,13 @@ using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
+using VersopayBackend.Repositories.Webhook;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
 using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
+using VersopayBackend.Services.Webhooks;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
@@ -88,6 +90,8 @@ builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
 builder.Services.AddScoped<IAntecipacaoRepository, AntecipacaoRepository>();
 builder.Services.AddScoped<IAntecipacoesService, AntecipacoesService>();
 
+builder.Services.AddScoped<IWebhookRepository, WebhookRepository>();
+builder.Services.AddScoped<IWebhooksService, WebhooksService>();
 
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
