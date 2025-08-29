@@ -13,6 +13,7 @@ namespace VersopayDatabase.Data
         public DbSet<NovaSenhaResetToken> NovaSenhaResetTokens => Set<NovaSenhaResetToken>();
         public DbSet<KycKyb> KycKybs => Set<KycKyb>();
         public DbSet<UsuarioSenhaHistorico> UsuarioSenhasHistorico { get; set; }
+        public DbSet<Antecipacao> Antecipacoes => Set<Antecipacao>();
         public DbSet<BypassToken> BypassTokens => Set<BypassToken>();
         public DbSet<DeviceTrustChallenge> DeviceTrustChallenges => Set<DeviceTrustChallenge>();
 
@@ -137,6 +138,28 @@ namespace VersopayDatabase.Data
             // índices úteis
             kycKyb.HasIndex(x => x.UsuarioId);
             kycKyb.HasIndex(x => new { x.Status, x.UsuarioId });
+
+
+            var antecipacao = modelBuilder.Entity<Antecipacao>();
+            antecipacao.HasKey(x => x.Id);
+
+            antecipacao.Property(x => x.DataSolicitacao).IsRequired(); // UTC
+            antecipacao.Property(x => x.Status).IsRequired();
+
+            antecipacao.Property(x => x.Valor)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired();
+
+            antecipacao.HasOne(x => x.Empresa)
+                .WithMany()                  // se quiser, crie ICollection<Antecipacao> em Usuario
+                .HasForeignKey(x => x.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Índices úteis
+            antecipacao.HasIndex(x => x.EmpresaId);
+            antecipacao.HasIndex(x => x.Status);
+            antecipacao.HasIndex(x => new { x.Status, x.DataSolicitacao });
+
 
             var bypassToken = modelBuilder.Entity<BypassToken>();
             bypassToken.HasKey(x => x.Id);
