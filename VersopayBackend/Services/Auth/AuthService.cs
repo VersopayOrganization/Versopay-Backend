@@ -3,7 +3,11 @@ using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
+using VersopayBackend.Repositories.NovaSenha;
+using VersopayBackend.Services.Email;
+using VersopayBackend.Utils;
 using VersopayLibrary.Models;
+using static VersopayBackend.Dtos.PasswordResetDtos;
 
 namespace VersopayBackend.Services.Auth
 {
@@ -14,7 +18,6 @@ namespace VersopayBackend.Services.Auth
         IRefreshTokenService refreshTokenService,
         IPasswordHasher<Usuario> hasher,
         IClock clock,
-<<<<<<< HEAD
         ILogger<AuthService> logger,
         INovaSenhaRepository novaSenhaRepository,
         IEmailEnvioService emailEnvio,
@@ -22,10 +25,7 @@ namespace VersopayBackend.Services.Auth
         IBypassTokenRepository bypassRepo,
         IUsuarioSenhaHistoricoRepository usuarioSenhaHistoricoRepository
     ) : IAuthService
-=======
-        ILogger<AuthService> logger
-        ) : IAuthService
->>>>>>> master
+
     {
         // Mantém seu LoginAsync antigo chamando o novo sem bypassRaw
         public Task<AuthResult?> LoginAsync(LoginDto dto, string? ip, string? ua, CancellationToken ct)
@@ -192,7 +192,6 @@ namespace VersopayBackend.Services.Auth
                 await usuarioRepository.SaveChangesAsync(ct);
             }
         }
-<<<<<<< HEAD
 
         public async Task ResetSenhaRequestAsync(
             SenhaEsquecidaRequest senhaEsquecidaRequest,
@@ -362,7 +361,6 @@ namespace VersopayBackend.Services.Auth
 
             return $"{first}{new string('*', Math.Max(1, name.Length - 2))}{last}@{domain}";
         }
-=======
->>>>>>> master
+
     }
 }
