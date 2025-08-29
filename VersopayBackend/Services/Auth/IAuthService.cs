@@ -7,16 +7,16 @@ namespace VersopayBackend.Services.Auth
 
     public interface IAuthService
     {
-        Task<AuthResult?> LoginAsync(LoginDto loginDto, string? ip, string? userAgent, string? bypassRaw, CancellationToken cancellationToken);
+        Task<LoginOutcomeDto> LoginOrChallengeAsync(LoginDto loginDto, string? ip, string? userAgent, string? bypassRaw, CancellationToken ct);
         Task<AuthResult?> RefreshAsync(string rawRefresh, string? ip, string? userAgent, CancellationToken cancellationToken);
         Task LogoutAsync(string? rawRefresh, CancellationToken cancellationToken);
 
-        Task ResetSenhaRequestAsync(SenhaEsquecidaRequest dto, string baseResetUrl, string? ip, string? ua, CancellationToken cancellationToken);
+        Task ResetSenhaRequestAsync(SenhaEsquecidaRequest senhaEsquecidaDto, string baseResetUrl, string? ip, string? ua, CancellationToken cancellationToken);
         Task<bool> ValidarTokenResetSenhaAsync(string rawToken, CancellationToken cancellationToken);
-        Task<bool> ResetSenhaAsync(RedefinirSenhaRequest dto, CancellationToken cancellationToken);
+        Task<bool> ResetSenhaAsync(RedefinirSenhaRequest redefinirSenhaDto, CancellationToken cancellationToken);
 
-        Task<DeviceTrustChallengeDto> StartDeviceTrustAsync(int usuarioId, string? ip, string? ua, CancellationToken ct);
-        Task<(string Raw, DateTime Exp)?> ConfirmDeviceTrustAsync(Guid challengeId, string code, string? ip, string? ua, CancellationToken ct);
+        Task<DeviceTrustChallengeDto> StartDeviceTrustAsync(int usuarioId, string? ip, string? ua, CancellationToken cancellationToken);
+        Task<(string Raw, DateTime Exp)?> ConfirmDeviceTrustAsync(Guid challengeId, string code, string? ip, string? ua, CancellationToken cancellationToken);
         (string Raw, DateTime Exp)? ConsumePendingBypassCookie();
     }
 }

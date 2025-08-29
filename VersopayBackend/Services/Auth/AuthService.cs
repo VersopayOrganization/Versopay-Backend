@@ -25,65 +25,57 @@ namespace VersopayBackend.Services.Auth
         IBypassTokenRepository bypassRepo,
         IUsuarioSenhaHistoricoRepository usuarioSenhaHistoricoRepository
     ) : IAuthService
-
     {
-        // Mantém seu LoginAsync antigo chamando o novo sem bypassRaw
-        public Task<AuthResult?> LoginAsync(LoginDto dto, string? ip, string? ua, CancellationToken ct)
-            => LoginAsync(dto, ip, ua, bypassRaw: null, ct);
-
-        public async Task<AuthResult?> LoginAsync(
+        // ===== Login: se tiver bypass válido => tokens; senão => challenge (2FA) por e-mail
+        public async Task<LoginOutcomeDto> LoginOrChallengeAsync(
             LoginDto dto, string? ip, string? ua, string? bypassRaw, CancellationToken ct)
         {
             var email = dto.Email.Trim().ToLowerInvariant();
             var usuario = await usuarioRepository.GetByEmailAsync(email, ct);
-            if (usuario is null) return null;
+            if (usuario is null)
+                return new LoginOutcomeDto { ChallengeRequired = false, Auth = null };
 
             var verify = hasher.VerifyHashedPassword(usuario, usuario.SenhaHash, dto.Senha);
-            if (verify == PasswordVerificationResult.Failed) return null;
+            if (verify == PasswordVerificationResult.Failed)
+                return new LoginOutcomeDto { ChallengeRequired = false, Auth = null };
+
             if (verify == PasswordVerificationResult.SuccessRehashNeeded)
             {
                 usuario.SenhaHash = hasher.HashPassword(usuario, dto.Senha);
                 await usuarioRepository.SaveChangesAsync(ct);
             }
 
-            // ===== Trusted Device Bypass =====
-            var bypassOk = false;
+            // 1) valida cookie bypass (trusted device)
+            var hasValidBypass = false;
             if (!string.IsNullOrWhiteSpace(bypassRaw))
             {
                 var bpHash = refreshTokenService.Hash(bypassRaw);
                 var bp = await bypassRepo.GetByHashWithUserAsync(bpHash, ct);
                 if (bp is not null && bp.EstaAtivo && bp.UsuarioId == usuario.Id)
                 {
-                    // opcional: validar IP/UA parecidos
-                    bypassOk = true;
+                    hasValidBypass = true;
                     bp.UltimoUsoUtc = clock.UtcNow;
                     await bypassRepo.SaveChangesAsync(ct);
                 }
             }
 
-            // Se não tinha cookie válido, cria um novo (trust this device)
-            if (!bypassOk)
+            // 2) se não tem bypass válido => cria challenge e envia código por e-mail
+            if (!hasValidBypass)
             {
-                var life = dto.Lembrar7Dias ? TimeSpan.FromDays(90) : TimeSpan.FromDays(30);
-                var (raw, hash, exp) = refreshTokenService.Create(life);
-
-                await bypassRepo.AddAsync(new BypassToken
+                try
                 {
-                    UsuarioId = usuario.Id,
-                    TokenHash = hash,
-                    ExpiraEmUtc = exp,
-                    Ip = ip,
-                    UserAgent = ua,
-                    Dispositivo = null
-                }, ct);
-
-                await bypassRepo.SaveChangesAsync(ct);
-
-                // Guardamos o raw para o controller setar no cookie
-                _pendingBypassCookie = (raw, exp);
+                    var ch = await StartDeviceTrustAsync(usuario.Id, ip, ua, ct);
+                    return new LoginOutcomeDto { ChallengeRequired = true, Challenge = ch };
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // Falha controlada no envio do e-mail (timeout/erro)
+                    logger.LogWarning(ex, "Falha ao iniciar 2FA para usuário {UserId}", usuario.Id);
+                    throw; // controller mapeia para ProblemDetails
+                }
             }
 
-            // Emite Access + Refresh como você já faz
+            // 3) bypass OK => emite tokens
             var access = tokens.CreateToken(usuario, clock.UtcNow, out var accessExp);
             var lifetime = dto.Lembrar7Dias ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
             var (rawRt, hashRt, expRt) = refreshTokenService.Create(lifetime);
@@ -96,7 +88,6 @@ namespace VersopayBackend.Services.Auth
                 Ip = ip,
                 UserAgent = ua
             }, ct);
-
             await usuarioRepository.SaveChangesAsync(ct);
 
             var usuarioDto = new UsuarioResponseDto
@@ -120,21 +111,17 @@ namespace VersopayBackend.Services.Auth
                 Usuario = usuarioDto
             };
 
-            return new AuthResult(resp, rawRt, expRt);
+            return new LoginOutcomeDto
+            {
+                ChallengeRequired = false,
+                Auth = resp,
+                RefreshRaw = rawRt,
+                RefreshExpiresUtc = expRt
+            };
         }
 
-        // ===== pequeno truque para passar o novo cookie p/ o controller =====
-        private (string Raw, DateTime Exp)? _pendingBypassCookie;
-
-        public (string Raw, DateTime Exp)? ConsumePendingBypassCookie()
-        {
-            var v = _pendingBypassCookie;
-            _pendingBypassCookie = null;
-            return v;
-        }
-
-        public async Task<AuthResult?> RefreshAsync(
-            string rawRefresh, string? ip, string? userAgent, CancellationToken ct)
+        // ===== Refresh token
+        public async Task<AuthResult?> RefreshAsync(string rawRefresh, string? ip, string? userAgent, CancellationToken ct)
         {
             var hash = refreshTokenService.Hash(rawRefresh);
             var refreshUserHash = await usuarioRepository.GetRefreshWithUserByHashAsync(hash, ct);
@@ -180,6 +167,7 @@ namespace VersopayBackend.Services.Auth
             return new AuthResult(resp, rawNew, expNew);
         }
 
+        // ===== Logout (revoga o refresh atual)
         public async Task LogoutAsync(string? rawRefresh, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(rawRefresh)) return;
@@ -193,24 +181,24 @@ namespace VersopayBackend.Services.Auth
             }
         }
 
+        // ===== Reset de senha (gera link)
         public async Task ResetSenhaRequestAsync(
-            SenhaEsquecidaRequest senhaEsquecidaRequest,
+            SenhaEsquecidaRequest dto,
             string baseResetUrl,
             string? ip,
-            string? userAgent,
-            CancellationToken cancellationToken)
+            string? ua,
+            CancellationToken ct)
         {
-            var email = senhaEsquecidaRequest.Email.Trim().ToLowerInvariant();
-            var user = await usuarioRepository.GetByEmailAsync(email, cancellationToken);
-
+            var email = dto.Email.Trim().ToLowerInvariant();
+            var user = await usuarioRepository.GetByEmailAsync(email, ct);
             if (user is null) return;
 
-            await novaSenhaRepository.InvalidateUserTokensAsync(user.Id, cancellationToken);
+            await novaSenhaRepository.InvalidateUserTokensAsync(user.Id, ct);
 
             var horarioAtual = DateTimeBrazil.Now();
             var horarioExpiracao = horarioAtual.AddMinutes(30);
 
-            var (raw, hash, expiracao) = refreshTokenService.Create(TimeSpan.FromMinutes(30));
+            var (raw, hash, _) = refreshTokenService.Create(TimeSpan.FromMinutes(30));
 
             await novaSenhaRepository.AddAsync(new NovaSenhaResetToken
             {
@@ -219,10 +207,10 @@ namespace VersopayBackend.Services.Auth
                 DataSolicitacao = horarioAtual,
                 DataExpiracao = horarioExpiracao,
                 Ip = ip,
-                UserAgent = userAgent
-            }, cancellationToken);
+                UserAgent = ua
+            }, ct);
 
-            await novaSenhaRepository.SaveChangesAsync(cancellationToken);
+            await novaSenhaRepository.SaveChangesAsync(ct);
 
             var resetBase = string.IsNullOrWhiteSpace(baseResetUrl)
                 ? configuration["Frontend:ResetUrl"] ?? "http://localhost:4200/auth/reset"
@@ -230,46 +218,60 @@ namespace VersopayBackend.Services.Auth
 
             var link = $"{resetBase}?token={Uri.EscapeDataString(raw)}";
 
-            await emailEnvio.EnvioResetSenhaAsync(user.Email, user.Nome, link, cancellationToken);
+            // (Opcional) também podemos evitar o cancel da request aqui.
+            try
+            {
+                using var emailCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await emailEnvio.EnvioResetSenhaAsync(user.Email, user.Nome, link, emailCts.Token);
+            }
+            catch (OperationCanceledException oce)
+            {
+                logger.LogWarning(oce, "Timeout ao enviar e-mail de reset de senha para {UserId}", user.Id);
+                // silencioso para não revelar existência do e-mail
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Erro ao enviar e-mail de reset de senha para {UserId}", user.Id);
+                // idem
+            }
         }
 
-        public async Task<bool> ValidarTokenResetSenhaAsync(string rawToken, CancellationToken cancellationToken)
+        public async Task<bool> ValidarTokenResetSenhaAsync(string rawToken, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(rawToken)) return false;
 
             var hash = refreshTokenService.Hash(rawToken);
-            var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, cancellationToken);
-
+            var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, ct);
             return hashUsuario is not null && hashUsuario.EstaAtivo(DateTimeBrazil.Now());
         }
 
-        public async Task<bool> ResetSenhaAsync(
-            RedefinirSenhaRequest redefinirSenhaRequest, CancellationToken cancellationToken)
+        public async Task<bool> ResetSenhaAsync(RedefinirSenhaRequest dto, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(redefinirSenhaRequest.Token) ||
-                string.IsNullOrWhiteSpace(redefinirSenhaRequest.NovaSenha) ||
-                redefinirSenhaRequest.NovaSenha != redefinirSenhaRequest.Confirmacao)
+            if (string.IsNullOrWhiteSpace(dto.Token) ||
+                string.IsNullOrWhiteSpace(dto.NovaSenha) ||
+                dto.NovaSenha != dto.Confirmacao)
                 return false;
 
-            if (!ValidacaoPadraoSenha.IsValido(redefinirSenhaRequest.NovaSenha))
+            if (!ValidacaoPadraoSenha.IsValido(dto.NovaSenha))
                 return false;
 
-            var hash = refreshTokenService.Hash(redefinirSenhaRequest.Token);
-            var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, cancellationToken);
+            var hash = refreshTokenService.Hash(dto.Token);
+            var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, ct);
             if (hashUsuario is null || !hashUsuario.EstaAtivo(DateTimeBrazil.Now()))
                 return false;
 
             var user = hashUsuario.Usuario;
 
-            var historicos = await usuarioSenhaHistoricoRepository.GetByUsuarioAsync(user.Id, cancellationToken);
+            // impede reuso de senhas
+            var historicos = await usuarioSenhaHistoricoRepository.GetByUsuarioAsync(user.Id, ct);
             foreach (var hist in historicos)
             {
-                var result = hasher.VerifyHashedPassword(user, hist.SenhaHash, redefinirSenhaRequest.NovaSenha);
+                var result = hasher.VerifyHashedPassword(user, hist.SenhaHash, dto.NovaSenha);
                 if (result == PasswordVerificationResult.Success)
                     return false;
             }
 
-            user.SenhaHash = hasher.HashPassword(user, redefinirSenhaRequest.NovaSenha);
+            user.SenhaHash = hasher.HashPassword(user, dto.NovaSenha);
             hashUsuario.DataTokenUsado = DateTimeBrazil.Now();
 
             await usuarioSenhaHistoricoRepository.AddAsync(new UsuarioSenhaHistorico
@@ -278,15 +280,15 @@ namespace VersopayBackend.Services.Auth
                 UsuarioId = user.Id,
                 SenhaHash = user.SenhaHash,
                 DataCriacao = DateTimeBrazil.Now()
-            }, cancellationToken);
+            }, ct);
 
-            await novaSenhaRepository.SaveChangesAsync(cancellationToken);
+            await novaSenhaRepository.SaveChangesAsync(ct);
             return true;
         }
 
-        // ===== Ativação de device (e-mail ou outro dispositivo) =====
+        // ===== Dispositivo confiável (2FA por e-mail)
         public async Task<DeviceTrustChallengeDto> StartDeviceTrustAsync(
-            int usuarioId, string? ip, string? ua, CancellationToken ct)
+    int usuarioId, string? ip, string? ua, CancellationToken ct)
         {
             await deviceTrustRepo.InvalidateUserOpenAsync(usuarioId, ct);
 
@@ -309,7 +311,32 @@ namespace VersopayBackend.Services.Auth
             var user = await usuarioRepository.GetByIdAsync(usuarioId, ct)
                        ?? throw new InvalidOperationException("Usuário não encontrado.");
 
-            await emailEnvio.EnvioCodigo2FAAsync(user.Email, user.Nome, code, ct);
+            // ===== Envio do e-mail: token DEDICADO e fallback em DEV =====
+            try
+            {
+                using var emailCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await emailEnvio.EnvioCodigo2FAAsync(user.Email, user.Nome, code, emailCts.Token);
+            }
+            catch (OperationCanceledException oce)
+            {
+                // Timeout: em DEV, loga o código para você testar; em PRD, mantenha só o log de warning.
+                #if DEBUG
+                // Facilita o teste: você vê o código mesmo se o provedor de e-mail falhar
+                logger.LogWarning(oce, "Timeout ao enviar 2FA; código para {Email}: {Code}", user.Email, code);
+                #else
+                    logger.LogWarning(oce, "Timeout ao enviar código 2FA para {UsuarioId}", usuarioId);
+                throw new InvalidOperationException("Falha ao enviar o e-mail de verificação (timeout). Tente novamente.");
+                #endif
+            }
+            catch (Exception ex)
+            {
+                #if DEBUG
+                logger.LogError(ex, "Erro ao enviar 2FA; código para {Email}: {Code}", user.Email, code);
+                #else
+                logger.LogError(ex, "Erro ao enviar código 2FA para {UsuarioId}", usuarioId);
+                throw new InvalidOperationException("Falha ao enviar o e-mail de verificação. Tente novamente.");
+                #endif
+            }
 
             return new DeviceTrustChallengeDto(ch.Id, ch.ExpiresAtUtc, MaskEmail(user.Email));
         }
@@ -326,7 +353,7 @@ namespace VersopayBackend.Services.Auth
             ch.Used = true;
             await deviceTrustRepo.SaveChangesAsync(ct);
 
-            // Cria agora o BypassToken
+            // cria o bypass token (60 dias, ajuste se quiser)
             var (raw, hash, exp) = refreshTokenService.Create(TimeSpan.FromDays(60));
             await bypassRepo.AddAsync(new BypassToken
             {
@@ -339,9 +366,19 @@ namespace VersopayBackend.Services.Auth
 
             await bypassRepo.SaveChangesAsync(ct);
 
-            return (raw, exp); // o controller vai setar o cookie bptkn
+            return (raw, exp); // o controller setará o cookie bptkn
         }
 
+        // ===== util interno p/ passar o novo bypass pro controller (opcional)
+        private (string Raw, DateTime Exp)? _pendingBypassCookie;
+        public (string Raw, DateTime Exp)? ConsumePendingBypassCookie()
+        {
+            var v = _pendingBypassCookie;
+            _pendingBypassCookie = null;
+            return v;
+        }
+
+        // ===== helpers =====
         private static string GenerateSixDigitCode()
         {
             Span<byte> b = stackalloc byte[4];
@@ -361,6 +398,5 @@ namespace VersopayBackend.Services.Auth
 
             return $"{first}{new string('*', Math.Max(1, name.Length - 2))}{last}@{domain}";
         }
-
     }
 }
