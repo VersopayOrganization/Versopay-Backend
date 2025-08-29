@@ -121,6 +121,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 // (1) Roteamento explícito ajuda a garantir ordem do middleware com endpoint routing
 app.UseRouting();
