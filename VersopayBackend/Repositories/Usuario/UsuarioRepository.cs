@@ -38,5 +38,8 @@ namespace VersopayBackend.Repositories
 
         public Task AddAsync(Usuario usuario, CancellationToken cancellationToken) =>
             appDbContext.Usuarios.AddAsync(usuario, cancellationToken).AsTask();
+
+        public Task<Usuario?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
+            appDbContext.Usuarios.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 }

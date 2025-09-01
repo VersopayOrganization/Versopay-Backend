@@ -14,6 +14,8 @@ namespace VersopayDatabase.Data
         public DbSet<KycKyb> KycKybs => Set<KycKyb>();
         public DbSet<UsuarioSenhaHistorico> UsuarioSenhasHistorico { get; set; }
         public DbSet<Antecipacao> Antecipacoes => Set<Antecipacao>();
+        public DbSet<BypassToken> BypassTokens => Set<BypassToken>();
+        public DbSet<DeviceTrustChallenge> DeviceTrustChallenges => Set<DeviceTrustChallenge>();
         public DbSet<Webhook> Webhooks => Set<Webhook>();
 
 
@@ -28,15 +30,13 @@ namespace VersopayDatabase.Data
             usuario.Property(x => x.Nome).HasMaxLength(120).IsRequired();
             usuario.Property(x => x.Email).HasMaxLength(160).IsRequired();
             usuario.Property(x => x.SenhaHash).IsRequired();
-            // enum nullable -> int? no banco
             usuario.Property(x => x.TipoCadastro).HasConversion<int?>();
             // CPF/CNPJ opcional no cadastro inicial
-            usuario.Property(x => x.CpfCnpj).HasMaxLength(14); // sem .IsRequired()
+            usuario.Property(x => x.CpfCnpj).HasMaxLength(14);
             usuario.Property(x => x.IsAdmin).HasDefaultValue(false);
-            // índices
             usuario.HasIndex(x => x.Email).IsUnique();
             // unicidade do documento só quando houver valor
-            usuario.HasIndex(x => x.CpfCnpj).IsUnique().HasFilter("[CpfCnpj] IS NOT NULL"); // SQL Server
+            usuario.HasIndex(x => x.CpfCnpj).IsUnique().HasFilter("[CpfCnpj] IS NOT NULL"); 
 
             // regra por tipo, mas permitindo o estado "inicial" (ambos nulos)
             usuario.ToTable(t => t.HasCheckConstraint(
@@ -72,9 +72,9 @@ namespace VersopayDatabase.Data
             var refreshToken = modelBuilder.Entity<RefreshToken>();
             refreshToken.HasKey(x => x.Id);
             refreshToken.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
-            refreshToken.HasIndex(x => x.TokenHash).IsUnique(); // lookup rápido por token
+            refreshToken.HasIndex(x => x.TokenHash).IsUnique(); 
             refreshToken.HasOne(x => x.Usuario)
-              .WithMany() // ou crie ICollection<RefreshToken> no Usuario, se quiser navegar
+              .WithMany()
               .HasForeignKey(x => x.UsuarioId)
               .OnDelete(DeleteBehavior.Cascade);
 
@@ -102,7 +102,7 @@ namespace VersopayDatabase.Data
              .IsRequired();
 
             pedido.HasOne(x => x.Vendedor)
-             .WithMany() // se quiser, coloque ICollection<Pedido> em Usuario
+             .WithMany() 
              .HasForeignKey(x => x.VendedorId)
              .OnDelete(DeleteBehavior.Restrict);
 
@@ -127,10 +127,10 @@ namespace VersopayDatabase.Data
             kycKyb.Property(x => x.NumeroDocumento)
              .HasMaxLength(64);
 
-            kycKyb.Property(x => x.DataAprovacao); // datetime2 null
+            kycKyb.Property(x => x.DataAprovacao); 
 
             kycKyb.HasOne(x => x.Usuario)
-             .WithMany() // deixe sem coleção, ou crie ICollection<KycKyb> no Usuario se quiser
+             .WithMany() 
              .HasForeignKey(x => x.UsuarioId)
              .OnDelete(DeleteBehavior.Cascade);
 
@@ -142,7 +142,7 @@ namespace VersopayDatabase.Data
             var antecipacao = modelBuilder.Entity<Antecipacao>();
             antecipacao.HasKey(x => x.Id);
 
-            antecipacao.Property(x => x.DataSolicitacao).IsRequired(); // UTC
+            antecipacao.Property(x => x.DataSolicitacao).IsRequired(); 
             antecipacao.Property(x => x.Status).IsRequired();
 
             antecipacao.Property(x => x.Valor)
@@ -150,7 +150,7 @@ namespace VersopayDatabase.Data
                 .IsRequired();
 
             antecipacao.HasOne(x => x.Empresa)
-                .WithMany()                  // se quiser, crie ICollection<Antecipacao> em Usuario
+                .WithMany()                  
                 .HasForeignKey(x => x.EmpresaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -173,6 +173,31 @@ namespace VersopayDatabase.Data
             webhook.HasIndex(x => x.Ativo);
             webhook.HasIndex(x => x.Eventos);
 
+
+            var bypassToken = modelBuilder.Entity<BypassToken>();
+            bypassToken.HasKey(x => x.Id);
+            bypassToken.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            bypassToken.HasIndex(x => x.TokenHash).IsUnique();
+            bypassToken.Property(x => x.Ip).HasMaxLength(64);
+            bypassToken.Property(x => x.UserAgent).HasMaxLength(200);
+            bypassToken.Property(x => x.Dispositivo).HasMaxLength(80);
+
+            bypassToken.HasOne(x => x.Usuario)
+              .WithMany()
+              .HasForeignKey(x => x.UsuarioId)
+              .OnDelete(DeleteBehavior.Cascade);
+
+            bypassToken.HasIndex(x => new { x.UsuarioId, x.RevogadoEmUtc, x.ExpiraEmUtc });
+
+
+            var deviceTrust = modelBuilder.Entity<DeviceTrustChallenge>();
+            deviceTrust.HasKey(x => x.Id);
+            deviceTrust.Property(x => x.CodeHash).HasMaxLength(128).IsRequired();
+            deviceTrust.Property(x => x.Ip).HasMaxLength(64);
+            deviceTrust.Property(x => x.UserAgent).HasMaxLength(200);
+            deviceTrust.Property(x => x.Dispositivo).HasMaxLength(80);
+            deviceTrust.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+            deviceTrust.HasIndex(x => new { x.UsuarioId, x.Used, x.ExpiresAtUtc });
         }
     }
 }
