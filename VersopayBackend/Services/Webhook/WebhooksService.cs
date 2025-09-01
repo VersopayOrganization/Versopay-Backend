@@ -11,72 +11,72 @@ using WebhookModel = VersopayLibrary.Models.Webhook;
 
 namespace VersopayBackend.Services.Webhooks
 {
-    public sealed class WebhooksService(IWebhookRepository repo, ILogger<WebhooksService> logger) : IWebhooksService
+    public sealed class WebhooksService(IWebhookRepository webhookRepository, ILogger<WebhooksService> logger) : IWebhooksService
     {
-        public async Task<WebhookResponseDto> CreateAsync(WebhookCreateDto dto, CancellationToken ct)
+        public async Task<WebhookResponseDto> CreateAsync(WebhookCreateDto webhookCreateDto, CancellationToken cancellationToken)
         {
-            var eventos = ParseEventos(dto.Eventos);
+            var eventos = ParseEventos(webhookCreateDto.Eventos);
 
             var entity = new WebhookModel
             {
-                Url = dto.Url.Trim(),
-                Ativo = dto.Ativo,
-                Secret = string.IsNullOrWhiteSpace(dto.Secret) ? null : dto.Secret,
+                Url = webhookCreateDto.Url.Trim(),
+                Ativo = webhookCreateDto.Ativo,
+                Secret = string.IsNullOrWhiteSpace(webhookCreateDto.Secret) ? null : webhookCreateDto.Secret,
                 Eventos = eventos,
                 CriadoEmUtc = DateTime.UtcNow
             };
 
-            await repo.AddAsync(entity, ct);
-            await repo.SaveChangesAsync(ct);
+            await webhookRepository.AddAsync(entity, cancellationToken);
+            await webhookRepository.SaveChangesAsync(cancellationToken);
 
             return Map(entity);
         }
 
-        public async Task<IEnumerable<WebhookResponseDto>> GetAllAsync(bool? ativo, CancellationToken ct)
+        public async Task<IEnumerable<WebhookResponseDto>> GetAllAsync(bool? ativo, CancellationToken cancellationToken)
         {
-            var q = repo.QueryNoTracking().OrderByDescending(x => x.CriadoEmUtc);
+            var query = webhookRepository.QueryNoTracking().OrderByDescending(x => x.CriadoEmUtc);
             if (ativo.HasValue)
-                q = q.Where(x => x.Ativo == ativo.Value).OrderByDescending(x => x.CriadoEmUtc);
+                query = query.Where(x => x.Ativo == ativo.Value).OrderByDescending(x => x.CriadoEmUtc);
 
-            var list = await q.ToListAsync(ct);
-            return list.Select(Map);
+            var lista = await query.ToListAsync(cancellationToken);
+            return lista.Select(Map);
         }
 
-        public async Task<WebhookResponseDto?> GetByIdAsync(int id, CancellationToken ct)
+        public async Task<WebhookResponseDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
         {
-            var e = await repo.GetByIdNoTrackingAsync(id, ct);
-            return e is null ? null : Map(e);
+            var webhook = await webhookRepository.GetByIdNoTrackingAsync(id, cancellationToken);
+            return webhook is null ? null : Map(webhook);
         }
 
-        public async Task<WebhookResponseDto?> UpdateAsync(int id, WebhookUpdateDto dto, CancellationToken ct)
+        public async Task<WebhookResponseDto?> UpdateAsync(int id, WebhookUpdateDto webhookUpdateDto, CancellationToken cancellationToken)
         {
-            var e = await repo.FindByIdAsync(id, ct);
-            if (e is null) return null;
+            var webhook = await webhookRepository.FindByIdAsync(id, cancellationToken);
+            if (webhook is null) return null;
 
-            e.Url = dto.Url.Trim();
-            e.Ativo = dto.Ativo;
-            e.Secret = string.IsNullOrWhiteSpace(dto.Secret) ? null : dto.Secret;
-            e.Eventos = ParseEventos(dto.Eventos);
-            e.AtualizadoEmUtc = DateTime.UtcNow;
+            webhook.Url = webhookUpdateDto.Url.Trim();
+            webhook.Ativo = webhookUpdateDto.Ativo;
+            webhook.Secret = string.IsNullOrWhiteSpace(webhookUpdateDto.Secret) ? null : webhookUpdateDto.Secret;
+            webhook.Eventos = ParseEventos(webhookUpdateDto.Eventos);
+            webhook.AtualizadoEmUtc = DateTime.UtcNow;
 
-            await repo.SaveChangesAsync(ct);
-            return Map(e);
+            await webhookRepository.SaveChangesAsync(cancellationToken);
+            return Map(webhook);
         }
 
-        public async Task<bool> DeleteAsync(int id, CancellationToken ct)
+        public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
         {
-            var e = await repo.FindByIdAsync(id, ct);
-            if (e is null) return false;
+            var webhook = await webhookRepository.FindByIdAsync(id, cancellationToken);
+            if (webhook is null) return false;
 
-            await repo.RemoveAsync(e, ct);
-            await repo.SaveChangesAsync(ct);
+            await webhookRepository.RemoveAsync(webhook, cancellationToken);
+            await webhookRepository.SaveChangesAsync(cancellationToken);
             return true;
         }
 
-        public async Task<bool> SendTestAsync(int id, WebhookTestPayloadDto payload, CancellationToken ct)
+        public async Task<bool> SendTestAsync(int id, WebhookTestPayloadDto payload, CancellationToken cancellationToken)
         {
-            var e = await repo.GetByIdNoTrackingAsync(id, ct);
-            if (e is null || !e.Ativo) return false;
+            var webhook = await webhookRepository.GetByIdNoTrackingAsync(id, cancellationToken);
+            if (webhook is null || !webhook.Ativo) return false;
 
             var envelope = new
             {
@@ -87,27 +87,27 @@ namespace VersopayBackend.Services.Webhooks
             };
 
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            using var req = new HttpRequestMessage(HttpMethod.Post, e.Url)
+            using var req = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
             {
                 Content = JsonContent.Create(envelope)
             };
 
-            if (!string.IsNullOrWhiteSpace(e.Secret))
+            if (!string.IsNullOrWhiteSpace(webhook.Secret))
             {
                 var body = System.Text.Json.JsonSerializer.Serialize(envelope);
-                var sig = WebhookSigning.SignBodySha256(body, e.Secret!);
+                var sig = WebhookSigning.SignBodySha256(body, webhook.Secret!);
                 req.Headers.Add("X-Versopay-Signature", $"sha256={sig}");
                 req.Headers.Add("X-Versopay-Event", payload.Tipo);
             }
 
             try
             {
-                var resp = await http.SendAsync(req, ct);
+                var resp = await http.SendAsync(req, cancellationToken);
                 return resp.IsSuccessStatusCode;
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Erro ao enviar webhook de teste para {Url}", e.Url);
+                logger.LogWarning(ex, "Erro ao enviar webhook de teste para {Url}", webhook.Url);
                 return false;
             }
         }
@@ -117,22 +117,22 @@ namespace VersopayBackend.Services.Webhooks
             WebhookEvent flags = WebhookEvent.None;
             foreach (var n in nomes ?? Array.Empty<string>())
             {
-                if (Enum.TryParse<WebhookEvent>(n, ignoreCase: true, out var ev))
-                    flags |= ev;
+                if (Enum.TryParse<WebhookEvent>(n, ignoreCase: true, out var webhookEvent))
+                    flags |= webhookEvent;
             }
             return flags;
         }
 
-        private static WebhookResponseDto Map(WebhookModel e) => new()
+        private static WebhookResponseDto Map(WebhookModel webhook) => new()
         {
-            Id = e.Id,
-            Url = e.Url,
-            Ativo = e.Ativo,
-            HasSecret = !string.IsNullOrWhiteSpace(e.Secret),
-            Eventos = ExpandEventos(e.Eventos),
-            EventosMask = (int)e.Eventos,
-            CriadoEmUtc = e.CriadoEmUtc,
-            AtualizadoEmUtc = e.AtualizadoEmUtc
+            Id = webhook.Id,
+            Url = webhook.Url,
+            Ativo = webhook.Ativo,
+            HasSecret = !string.IsNullOrWhiteSpace(webhook.Secret),
+            Eventos = ExpandEventos(webhook.Eventos),
+            EventosMask = (int)webhook.Eventos,
+            CriadoEmUtc = webhook.CriadoEmUtc,
+            AtualizadoEmUtc = webhook.AtualizadoEmUtc
         };
 
         private static string[] ExpandEventos(WebhookEvent flags) =>

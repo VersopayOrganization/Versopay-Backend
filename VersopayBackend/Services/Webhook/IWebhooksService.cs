@@ -5,11 +5,11 @@ namespace VersopayBackend.Services.Webhooks
 {
     public interface IWebhooksService
     {
-        Task<WebhookResponseDto> CreateAsync(WebhookCreateDto dto, CancellationToken ct);
-        Task<IEnumerable<WebhookResponseDto>> GetAllAsync(bool? ativo, CancellationToken ct);
-        Task<WebhookResponseDto?> GetByIdAsync(int id, CancellationToken ct);
-        Task<WebhookResponseDto?> UpdateAsync(int id, WebhookUpdateDto dto, CancellationToken ct);
-        Task<bool> DeleteAsync(int id, CancellationToken ct);
-        Task<bool> SendTestAsync(int id, WebhookTestPayloadDto payload, CancellationToken ct);
+        Task<WebhookResponseDto> CreateAsync(WebhookCreateDto webhookCreateDto, CancellationToken cancellationToken);
+        Task<IEnumerable<WebhookResponseDto>> GetAllAsync(bool? ativo, CancellationToken cancellationToken);
+        Task<WebhookResponseDto?> GetByIdAsync(int id, CancellationToken cancellationToken);
+        Task<WebhookResponseDto?> UpdateAsync(int id, WebhookUpdateDto webhookUpdateDto, CancellationToken cancellationToken);
+        Task<bool> DeleteAsync(int id, CancellationToken cancellationToken);
+        Task<bool> SendTestAsync(int id, WebhookTestPayloadDto webhookTestPayloadDto, CancellationToken cancellationToken);
     }
 }
