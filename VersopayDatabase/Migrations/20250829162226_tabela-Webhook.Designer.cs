@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VersopayDatabase.Data;
 
@@ -11,9 +12,11 @@ using VersopayDatabase.Data;
 namespace VersopayDatabase.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250829162226_tabela-Webhook")]
+    partial class tabelaWebhook
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -51,98 +54,6 @@ namespace VersopayDatabase.Migrations
                     b.HasIndex("Status", "DataSolicitacao");
 
                     b.ToTable("Antecipacoes");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.BypassToken", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CriadoEmUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Dispositivo")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<DateTime>("ExpiraEmUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Ip")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<DateTime?>("RevogadoEmUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTime?>("UltimoUsoUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("UsuarioId", "RevogadoEmUtc", "ExpiraEmUtc");
-
-                    b.ToTable("BypassTokens");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.DeviceTrustChallenge", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("CodeHash")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Dispositivo")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<DateTime>("ExpiresAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Ip")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("Used")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioId", "Used", "ExpiresAtUtc");
-
-                    b.ToTable("DeviceTrustChallenges");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.Documento", b =>
@@ -383,65 +294,6 @@ namespace VersopayDatabase.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("VersopayLibrary.Models.Transferencia", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Aprovacao")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ChavePix")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<DateTime?>("DataAprovacao")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DataCadastro")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DataSolicitacao")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Empresa")
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<string>("Nome")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<int>("SolicitanteId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("Taxa")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("TipoEnvio")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("ValorFinal")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("ValorSolicitado")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SolicitanteId");
-
-                    b.HasIndex("Status", "DataSolicitacao");
-
-                    b.ToTable("Transferencias");
-                });
-
             modelBuilder.Entity("VersopayLibrary.Models.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -526,39 +378,6 @@ namespace VersopayDatabase.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("UsuarioSenhasHistorico");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.Antecipacao", b =>
-                {
-                    b.HasOne("VersopayLibrary.Models.Usuario", "Empresa")
-                        .WithMany()
-                        .HasForeignKey("EmpresaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Empresa");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.BypassToken", b =>
-                {
-                    b.HasOne("VersopayLibrary.Models.Usuario", "Usuario")
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.DeviceTrustChallenge", b =>
-                {
-                    b.HasOne("VersopayLibrary.Models.Usuario", "Usuario")
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.Webhook", b =>
@@ -665,17 +484,6 @@ namespace VersopayDatabase.Migrations
                         .IsRequired();
 
                     b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.Transferencia", b =>
-                {
-                    b.HasOne("VersopayLibrary.Models.Usuario", "Solicitante")
-                        .WithMany()
-                        .HasForeignKey("SolicitanteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Solicitante");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.UsuarioSenhaHistorico", b =>
