@@ -178,13 +178,19 @@ namespace VersopayDatabase.Data
 
             // OnModelCreating:
             var deviceTrust = modelBuilder.Entity<DeviceTrustChallenge>();
+            deviceTrust.ToTable("DeviceTrustChallenges");
             deviceTrust.HasKey(x => x.Id);
             deviceTrust.Property(x => x.CodeHash).HasMaxLength(128).IsRequired();
             deviceTrust.Property(x => x.Ip).HasMaxLength(64);
             deviceTrust.Property(x => x.UserAgent).HasMaxLength(200);
             deviceTrust.Property(x => x.Dispositivo).HasMaxLength(80);
-            deviceTrust.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+
             deviceTrust.HasIndex(x => new { x.UsuarioId, x.Used, x.ExpiresAtUtc });
+
+            deviceTrust.HasOne(x => x.Usuario)
+              .WithMany()
+              .HasForeignKey(x => x.UsuarioId)
+              .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
