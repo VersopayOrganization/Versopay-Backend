@@ -97,6 +97,9 @@ builder.Services.AddScoped<IDeviceTrustChallengeRepository, DeviceTrustChallenge
 builder.Services.AddScoped<IAntecipacaoRepository, AntecipacaoRepository>();
 builder.Services.AddScoped<IAntecipacoesService, AntecipacoesService>();
 
+builder.Services.AddScoped<ITransferenciaRepository, TransferenciaRepository>();
+builder.Services.AddScoped<ITransferenciasService, TransferenciasService>();
+
 
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
