@@ -17,6 +17,7 @@ namespace VersopayDatabase.Data
         public DbSet<BypassToken> BypassTokens => Set<BypassToken>();
         public DbSet<DeviceTrustChallenge> DeviceTrustChallenges => Set<DeviceTrustChallenge>();
         public DbSet<Webhook> Webhooks => Set<Webhook>();
+        public DbSet<Transferencia> Transferencias => Set<Transferencia>();
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -204,6 +205,33 @@ namespace VersopayDatabase.Data
               .WithMany()
               .HasForeignKey(x => x.UsuarioId)
               .OnDelete(DeleteBehavior.Cascade);
+
+            var transferencia = modelBuilder.Entity<Transferencia>();
+            transferencia.HasKey(x => x.Id);
+
+            transferencia.Property(x => x.Status).IsRequired();
+            transferencia.Property(x => x.DataSolicitacao).IsRequired();
+            transferencia.Property(x => x.DataCadastro).IsRequired();
+
+            transferencia.Property(x => x.ValorSolicitado)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired();
+
+            transferencia.Property(x => x.Taxa).HasColumnType("decimal(18,2)");
+            transferencia.Property(x => x.ValorFinal).HasColumnType("decimal(18,2)");
+
+            transferencia.Property(x => x.Nome).HasMaxLength(120);
+            transferencia.Property(x => x.Empresa).HasMaxLength(160);
+            transferencia.Property(x => x.ChavePix).HasMaxLength(120);
+
+            transferencia.HasOne(x => x.Solicitante)
+                .WithMany()
+                .HasForeignKey(x => x.SolicitanteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Índices
+            transferencia.HasIndex(x => x.SolicitanteId);
+            transferencia.HasIndex(x => new { x.Status, x.DataSolicitacao });
         }
     }
 }
