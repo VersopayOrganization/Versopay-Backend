@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace VersopayLibrary.Models
 {
@@ -16,7 +11,6 @@ namespace VersopayLibrary.Models
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
         public DateTime ExpiresAtUtc { get; set; }
         public bool Used { get; set; } = false;
-
         [MaxLength(64)] public string? Ip { get; set; }
         [MaxLength(200)] public string? UserAgent { get; set; }
         [MaxLength(80)] public string? Dispositivo { get; set; }
