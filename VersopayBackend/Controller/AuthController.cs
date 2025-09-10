@@ -7,7 +7,7 @@ namespace VersopayBackend.Controllers
 {
     [ApiController]
     [Route("api/auth")]
-    public class AuthController(IAuthService auth) : ControllerBase
+    public class AuthController(IAuthService auth, IHostEnvironment env) : ControllerBase
     {
         const string RefreshCookieName = "rtkn";
         const string BypassCookieName = "bptkn";
@@ -152,8 +152,9 @@ namespace VersopayBackend.Controllers
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = expiresUtc
+                SameSite = env.IsDevelopment() ? SameSiteMode.None : SameSiteMode.Strict,
+                Expires = expiresUtc,
+                Path = "/"
             });
         }
 
@@ -163,8 +164,9 @@ namespace VersopayBackend.Controllers
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = expiresUtc
+                SameSite = env.IsDevelopment() ? SameSiteMode.None : SameSiteMode.Strict,
+                Expires = expiresUtc,
+                Path = "/"
             });
         }
     }
