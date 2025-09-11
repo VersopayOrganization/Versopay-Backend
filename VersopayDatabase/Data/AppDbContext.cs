@@ -18,7 +18,8 @@ namespace VersopayDatabase.Data
         public DbSet<DeviceTrustChallenge> DeviceTrustChallenges => Set<DeviceTrustChallenge>();
         public DbSet<Webhook> Webhooks => Set<Webhook>();
         public DbSet<Transferencia> Transferencias => Set<Transferencia>();
-
+        public DbSet<Extrato> Extratos => Set<Extrato>();
+        public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -232,6 +233,35 @@ namespace VersopayDatabase.Data
             // Índices
             transferencia.HasIndex(x => x.SolicitanteId);
             transferencia.HasIndex(x => new { x.Status, x.DataSolicitacao });
+
+            var extrato = modelBuilder.Entity<Extrato>();
+            extrato.HasKey(x => x.Id);
+            extrato.Property(x => x.SaldoDisponivel).HasColumnType("decimal(18,2)");
+            extrato.Property(x => x.SaldoPendente).HasColumnType("decimal(18,2)");
+            extrato.Property(x => x.ReservaFinanceira).HasColumnType("decimal(18,2)");
+            extrato.Property(x => x.AtualizadoEmUtc).IsRequired();
+
+            extrato.HasOne(x => x.Cliente)
+                   .WithMany() // 1:1 lógico — não precisa coleção em Usuario
+                   .HasForeignKey(x => x.ClienteId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            extrato.HasIndex(x => x.ClienteId).IsUnique(); // um extrato por cliente
+
+            var movimentacaoFinanceira = modelBuilder.Entity<MovimentacaoFinanceira>();
+            movimentacaoFinanceira.HasKey(x => x.Id);
+            movimentacaoFinanceira.Property(x => x.Tipo).IsRequired();
+            movimentacaoFinanceira.Property(x => x.Status).IsRequired();
+            movimentacaoFinanceira.Property(x => x.Valor).HasColumnType("decimal(18,2)").IsRequired();
+            movimentacaoFinanceira.Property(x => x.Descricao).HasMaxLength(200);
+            movimentacaoFinanceira.Property(x => x.Referencia).HasMaxLength(80);
+
+            movimentacaoFinanceira.HasOne(x => x.Cliente)
+               .WithMany()
+               .HasForeignKey(x => x.ClienteId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+            movimentacaoFinanceira.HasIndex(x => new { x.ClienteId, x.Status, x.CriadoEmUtc });
         }
     }
 }
