@@ -18,5 +18,7 @@ namespace VersopayBackend.Services.Auth
         Task<DeviceTrustChallengeDto> StartDeviceTrustAsync(int usuarioId, string? ip, string? ua, CancellationToken cancellationToken);
         Task<(string Raw, DateTime Exp)?> ConfirmDeviceTrustAsync(Guid challengeId, string code, string? ip, string? ua, CancellationToken cancellationToken);
         (string Raw, DateTime Exp)? ConsumePendingBypassCookie();
+        Task<AuthWithPanelsResult?> ConfirmDeviceTrustAndIssueTokensAsync(
+                        Guid challengeId, string code, string? ip, string? ua, CancellationToken ct);
     }
 }

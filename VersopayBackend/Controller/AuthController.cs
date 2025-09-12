@@ -21,6 +21,7 @@ namespace VersopayBackend.Controllers
             try
             {
                 var bypassRaw = Request.Cookies[BypassCookieName];
+
                 var outcome = await auth.LoginOrChallengeAsync(
                     loginDto,
                     HttpContext.Connection.RemoteIpAddress?.ToString(),
@@ -29,12 +30,23 @@ namespace VersopayBackend.Controllers
                     ct
                 );
 
+                // Credenciais ruins
                 if (outcome.Auth is null && !outcome.ChallengeRequired)
                     return Unauthorized(new { message = "Credenciais inválidas." });
 
-                if (outcome.ChallengeRequired)
-                    return Accepted(new { requires2fa = true, challenge = outcome.Challenge });
+                // Precisa de 2FA → 202
+                if (outcome.ChallengeRequired && outcome.Challenge is not null)
+                {
+                    return Accepted(new
+                    {
+                        requires2fa = true,
+                        challenge = outcome.Challenge,
+                        challengeId = outcome.Challenge.ChallengeId,
+                        maskedEmail = outcome.Challenge.MaskedEmail
+                    });
+                }
 
+                // Tokens OK → 200
                 if (string.IsNullOrWhiteSpace(outcome.RefreshRaw) || outcome.RefreshExpiresUtc is null)
                     return Problem("Falha ao emitir refresh token.", statusCode: 500);
 
@@ -48,14 +60,14 @@ namespace VersopayBackend.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // veio do StartDeviceTrustAsync (timeout/falha no e-mail)
+                // erro controlado no envio do e-mail do 2FA
                 return Problem(ex.Message, statusCode: 500);
             }
         }
 
         /// <summary>
-        /// Força o fluxo 2FA usando as credenciais: se NÃO houver device confiável, cria challenge e envia código.
-        /// Se houver device confiável, já retorna tokens (mesma resposta do /login).
+        /// Força o fluxo 2FA: se NÃO houver device confiável, cria challenge e envia código.
+        /// Se houver device confiável, retorna tokens (mesma resposta do /login).
         /// </summary>
         [HttpPost("login/2fa/start")]
         [AllowAnonymous]
@@ -63,7 +75,6 @@ namespace VersopayBackend.Controllers
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
-            // Força revalidação sem depender do cookie bypass (bypassRaw = null)
             var outcome = await auth.LoginOrChallengeAsync(
                 loginDto,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
@@ -75,10 +86,22 @@ namespace VersopayBackend.Controllers
             if (outcome.Auth is null && !outcome.ChallengeRequired)
                 return Unauthorized(new { message = "Credenciais inválidas." });
 
-            if (outcome.ChallengeRequired)
-                return Accepted(new { requires2fa = true, challenge = outcome.Challenge });
+            if (outcome.ChallengeRequired && outcome.Challenge is not null)
+            {
+                return Accepted(new
+                {
+                    requires2fa = true,
+                    challenge = outcome.Challenge,
+                    challengeId = outcome.Challenge.ChallengeId,
+                    maskedEmail = outcome.Challenge.MaskedEmail
+                });
+            }
 
-            SetRefreshCookie(outcome.RefreshRaw!, outcome.RefreshExpiresUtc!.Value);
+            // Tokens OK
+            if (string.IsNullOrWhiteSpace(outcome.RefreshRaw) || outcome.RefreshExpiresUtc is null)
+                return Problem("Falha ao emitir refresh token.", statusCode: 500);
+
+            SetRefreshCookie(outcome.RefreshRaw, outcome.RefreshExpiresUtc.Value);
 
             var pending = auth.ConsumePendingBypassCookie();
             if (pending is not null)
@@ -88,9 +111,8 @@ namespace VersopayBackend.Controllers
         }
 
         /// <summary>
-        /// Confirma o código de 6 dígitos (2FA) e grava o cookie de device confiável (bypass).
-        /// Observação: este endpoint NÃO emite access/refresh; após confirmar,
-        /// o frontend deve chamar /api/auth/login novamente (com as mesmas credenciais) para receber os tokens.
+        /// Confirma o código 2FA. Emite tokens, grava cookies e retorna
+        /// Auth + Perfil + Dashboard + Taxas em um único payload.
         /// </summary>
         [HttpPost("login/2fa/confirm")]
         [AllowAnonymous]
@@ -98,7 +120,7 @@ namespace VersopayBackend.Controllers
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
-            var pair = await auth.ConfirmDeviceTrustAsync(
+            var result = await auth.ConfirmDeviceTrustAndIssueTokensAsync(
                 body.ChallengeId,
                 body.Code,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
@@ -106,14 +128,19 @@ namespace VersopayBackend.Controllers
                 ct
             );
 
-            if (pair is null)
+            if (result is null)
                 return BadRequest(new { message = "Código inválido ou expirado." });
 
-            // seta cookie de bypass (trusted device)
-            SetBypassCookie(pair.Value.Raw, pair.Value.Exp);
+            // cookie refresh
+            SetRefreshCookie(result.RefreshRaw, result.RefreshExpiresUtc);
 
-            // dica para o client: agora é só chamar /api/auth/login com as mesmas credenciais
-            return NoContent();
+            // cookie bypass
+            var pending = auth.ConsumePendingBypassCookie();
+            if (pending is not null)
+                SetBypassCookie(pending.Value.Raw, pending.Value.Exp);
+
+            // payload completo: auth + perfil + dashboard + taxas
+            return Ok(result.Payload);
         }
 
         [HttpPost("refresh")]
@@ -140,7 +167,12 @@ namespace VersopayBackend.Controllers
         public async Task<IActionResult> Logout(CancellationToken ct)
         {
             await auth.LogoutAsync(Request.Cookies[RefreshCookieName], ct);
-            Response.Cookies.Delete(RefreshCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
+            Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict
+            });
             // Se quiser também apagar o bypass deste device:
             // Response.Cookies.Delete(BypassCookieName, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict });
             return NoContent();
