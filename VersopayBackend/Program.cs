@@ -105,6 +105,11 @@ builder.Services.AddScoped<IWebhooksService, WebhooksService>();
 builder.Services.AddScoped<ITransferenciaRepository, TransferenciaRepository>();
 builder.Services.AddScoped<ITransferenciasService, TransferenciasService>();
 
+builder.Services.AddScoped<IExtratoRepository, ExtratoRepository>();
+builder.Services.AddScoped<IMovimentacaoRepository, MovimentacaoRepository>();
+builder.Services.AddScoped<IExtratoService, ExtratoService>();
+
+
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
