@@ -38,7 +38,23 @@ namespace VersopayDatabase.Data
             usuario.Property(x => x.IsAdmin).HasDefaultValue(false);
             usuario.HasIndex(x => x.Email).IsUnique();
             // unicidade do documento só quando houver valor
-            usuario.HasIndex(x => x.CpfCnpj).IsUnique().HasFilter("[CpfCnpj] IS NOT NULL"); 
+            usuario.HasIndex(x => x.CpfCnpj).IsUnique().HasFilter("[CpfCnpj] IS NOT NULL");
+
+            usuario.Property(x => x.NomeFantasia).HasMaxLength(160);
+            usuario.Property(x => x.RazaoSocial).HasMaxLength(160);
+            usuario.Property(x => x.Site).HasMaxLength(160);
+
+            usuario.Property(x => x.EnderecoCep).HasMaxLength(9);
+            usuario.Property(x => x.EnderecoLogradouro).HasMaxLength(120);
+            usuario.Property(x => x.EnderecoNumero).HasMaxLength(20);
+            usuario.Property(x => x.EnderecoComplemento).HasMaxLength(80);
+            usuario.Property(x => x.EnderecoBairro).HasMaxLength(80);
+            usuario.Property(x => x.EnderecoCidade).HasMaxLength(80);
+            usuario.Property(x => x.EnderecoUF).HasMaxLength(2);
+
+            usuario.Property(x => x.NomeCompletoBanco).HasMaxLength(160);
+            usuario.Property(x => x.ChavePix).HasMaxLength(120);
+            usuario.Property(x => x.ChaveCarteiraCripto).HasMaxLength(120);
 
             // regra por tipo, mas permitindo o estado "inicial" (ambos nulos)
             usuario.ToTable(t => t.HasCheckConstraint(

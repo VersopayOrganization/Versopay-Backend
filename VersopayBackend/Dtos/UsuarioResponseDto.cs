@@ -1,8 +1,11 @@
-﻿using VersopayLibrary.Models;
+﻿// VersopayBackend/Dtos/UsuarioResponseDto.cs
+using System;
+using VersopayLibrary.Enums;
+using VersopayLibrary.Models;
 
 namespace VersopayBackend.Dtos
 {
-    public class UsuarioResponseDto
+    public sealed class UsuarioResponseDto
     {
         public int Id { get; set; }
         public string Nome { get; set; } = default!;
@@ -11,8 +14,28 @@ namespace VersopayBackend.Dtos
         public string? Instagram { get; set; }
         public string? Telefone { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        // documentos
+        public string? CpfCnpj { get; set; }
+        public string? CpfCnpjFormatado { get; set; }
+
         public bool IsAdmin { get; set; }
-        public string? CpfCnpj { get; set; } = default!;       // só dígitos
-        public string? CpfCnpjFormatado { get; set; }         // 000.000.000-00 / 00.000.000/0000-00
+
+        // novos
+        public string? NomeFantasia { get; set; }
+        public string? RazaoSocial { get; set; }
+        public string? Site { get; set; }
+
+        public string? EnderecoCep { get; set; }
+        public string? EnderecoLogradouro { get; set; }
+        public string? EnderecoNumero { get; set; }
+        public string? EnderecoComplemento { get; set; }
+        public string? EnderecoBairro { get; set; }
+        public string? EnderecoCidade { get; set; }
+        public string? EnderecoUF { get; set; }
+
+        public string? NomeCompletoBanco { get; set; }
+        public string? ChavePix { get; set; }
+        public string? ChaveCarteiraCripto { get; set; }
     }
 }

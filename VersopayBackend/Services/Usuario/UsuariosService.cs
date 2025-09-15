@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using VersopayBackend.Auth;
+using VersopayBackend.Common;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
@@ -87,32 +88,83 @@ namespace VersopayBackend.Services
             return usuarioResposedto;
         }
 
-        public async Task<UsuarioResponseDto?> UpdateAsync(int id, UsuarioUpdateDto usuarioResposedto, CancellationToken cancellationToken)
+        public async Task<UsuarioResponseDto?> UpdateAsync(int id, UsuarioUpdateDto usuarioUpdateDto, CancellationToken cancellationToken)
         {
-            var usuario = await usuarioRepository.FindByIdAsync(id, cancellationToken);
+            var usuario = await usuarioRepository.GetByIdAsync(id, cancellationToken);
             if (usuario is null) return null;
 
-            var digits = CpfCnpjUtils.ValidarQtdDigitos(usuarioResposedto.CpfCnpj);
-            if (!CpfCnpjUtils.IsValidoTipo(digits, usuarioResposedto.TipoCadastro))
-                throw new ArgumentException("CpfCnpj não condiz com o TipoCadastro.");
+            // e-mail: normaliza + verifica conflito
+            var newEmail = usuarioUpdateDto.Email.Trim().ToLowerInvariant();
+            if (!string.Equals(newEmail, usuario.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                var exists = await usuarioRepository.GetByEmailAsync(newEmail, cancellationToken);
+                if (exists is not null && exists.Id != usuario.Id)
+                    throw new ArgumentException("Este e-mail já está em uso.");
+                usuario.Email = newEmail;
+            }
 
-            if (!string.Equals(usuario.CpfCnpj, digits, StringComparison.Ordinal) &&
-                await usuarioRepository.CpfCnpjExistsAsync(digits, cancellationToken))
-                throw new InvalidOperationException("CPF/CNPJ já cadastrado.");
+            usuario.Nome = usuarioUpdateDto.Nome.Trim();
+            usuario.TipoCadastro = usuarioUpdateDto.TipoCadastro;
 
-            usuario.Nome = usuarioResposedto.Nome.Trim();
-            usuario.TipoCadastro = usuarioResposedto.TipoCadastro;
-            usuario.CpfCnpj = digits;
-            usuario.Instagram = string.IsNullOrWhiteSpace(usuarioResposedto.Instagram) ? null :
-                          (usuarioResposedto.Instagram.StartsWith("@") ? usuarioResposedto.Instagram.Trim() : "@" + usuarioResposedto.Instagram.Trim());
-            usuario.Telefone = usuarioResposedto.Telefone;
+            // sempre salvar somente dígitos no CpfCnpj
+            usuario.CpfCnpj = new string((usuarioUpdateDto.CpfCnpj ?? "").Where(char.IsDigit).ToArray());
+
+            usuario.Instagram = string.IsNullOrWhiteSpace(usuarioUpdateDto.Instagram) ? null : usuarioUpdateDto.Instagram.Trim();
+            usuario.Telefone = string.IsNullOrWhiteSpace(usuarioUpdateDto.Telefone) ? null : usuarioUpdateDto.Telefone.Trim();
+
+            // Perfil
+            usuario.NomeFantasia = string.IsNullOrWhiteSpace(usuarioUpdateDto.NomeFantasia) ? null : usuarioUpdateDto.NomeFantasia.Trim();
+            usuario.RazaoSocial = string.IsNullOrWhiteSpace(usuarioUpdateDto.RazaoSocial) ? null : usuarioUpdateDto.RazaoSocial.Trim();
+            usuario.Site = string.IsNullOrWhiteSpace(usuarioUpdateDto.Site) ? null : usuarioUpdateDto.Site.Trim();
+
+            // Endereço (CEP só dígitos, mas mantenho até 9 para aceitar “12345-678”)
+            usuario.EnderecoCep = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoCep) ? null : usuarioUpdateDto.EnderecoCep.Trim();
+            usuario.EnderecoLogradouro = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoLogradouro) ? null : usuarioUpdateDto.EnderecoLogradouro.Trim();
+            usuario.EnderecoNumero = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoNumero) ? null : usuarioUpdateDto.EnderecoNumero.Trim();
+            usuario.EnderecoComplemento = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoComplemento) ? null : usuarioUpdateDto.EnderecoComplemento.Trim();
+            usuario.EnderecoBairro = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoBairro) ? null : usuarioUpdateDto.EnderecoBairro.Trim();
+            usuario.EnderecoCidade = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoCidade) ? null : usuarioUpdateDto.EnderecoCidade.Trim();
+            usuario.EnderecoUF = string.IsNullOrWhiteSpace(usuarioUpdateDto.EnderecoUF) ? null : usuarioUpdateDto.EnderecoUF.Trim().ToUpperInvariant();
+
+            // Financeiro
+            usuario.NomeCompletoBanco = string.IsNullOrWhiteSpace(usuarioUpdateDto.NomeCompletoBanco) ? null : usuarioUpdateDto.NomeCompletoBanco.Trim();
+            usuario.ChavePix = string.IsNullOrWhiteSpace(usuarioUpdateDto.ChavePix) ? null : usuarioUpdateDto.ChavePix.Trim();
+            usuario.ChaveCarteiraCripto = string.IsNullOrWhiteSpace(usuarioUpdateDto.ChaveCarteiraCripto) ? null : usuarioUpdateDto.ChaveCarteiraCripto.Trim();
+
             usuario.DataAtualizacao = DateTime.UtcNow;
 
             await usuarioRepository.SaveChangesAsync(cancellationToken);
 
-            var response = usuario.ToResponseDto();
-            response.CpfCnpjFormatado = CpfCnpjUtils.Mascara(response.CpfCnpj);
-            return response;
+            // monta o response já com os novos campos
+            return new UsuarioResponseDto
+            {
+                Id = usuario.Id,
+                Nome = usuario.Nome,
+                Email = usuario.Email,
+                TipoCadastro = usuario.TipoCadastro,
+                Instagram = usuario.Instagram,
+                Telefone = usuario.Telefone,
+                CreatedAt = usuario.DataCriacao,
+                CpfCnpj = usuario.CpfCnpj,
+                CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
+                IsAdmin = usuario.IsAdmin,
+
+                NomeFantasia = usuario.NomeFantasia,
+                RazaoSocial = usuario.RazaoSocial,
+                Site = usuario.Site,
+
+                EnderecoCep = usuario.EnderecoCep,
+                EnderecoLogradouro = usuario.EnderecoLogradouro,
+                EnderecoNumero = usuario.EnderecoNumero,
+                EnderecoComplemento = usuario.EnderecoComplemento,
+                EnderecoBairro = usuario.EnderecoBairro,
+                EnderecoCidade = usuario.EnderecoCidade,
+                EnderecoUF = usuario.EnderecoUF,
+
+                NomeCompletoBanco = usuario.NomeCompletoBanco,
+                ChavePix = usuario.ChavePix,
+                ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
+            };
         }
 
         public async Task<string> ResetSenhaRequestAsync(SenhaEsquecidaRequest senhaEsquecidaRequest, string baseResetUrl, string? ip, string? userAgent, CancellationToken cancellationToken)

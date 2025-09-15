@@ -81,7 +81,7 @@ namespace VersopayBackend.Controllers
             return Ok(new { resetLink = link });
         }
 
-    [HttpGet("resetar-senha/validar")]
+        [HttpGet("resetar-senha/validar")]
         [AllowAnonymous]
         public async Task<IActionResult> ValidarResetToken([FromQuery] string token, CancellationToken cancellationToken)
         {
