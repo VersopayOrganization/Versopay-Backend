@@ -5,7 +5,9 @@ using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Services.Email;
+using VersopayBackend.Services.Taxas;
 using VersopayBackend.Utils;
+using VersopayLibrary.Enums;
 using VersopayLibrary.Models;
 using static VersopayBackend.Dtos.PasswordResetDtos;
 
@@ -23,7 +25,10 @@ namespace VersopayBackend.Services.Auth
         IEmailEnvioService emailEnvio,
         IConfiguration configuration,
         IBypassTokenRepository bypassRepo,
-        IUsuarioSenhaHistoricoRepository usuarioSenhaHistoricoRepository
+        IUsuarioSenhaHistoricoRepository usuarioSenhaHistoricoRepository,
+        IPedidoReadRepository pedidoReadRepo,
+        IExtratoRepository extratoRepo,
+        ITaxasProvider fees
     ) : IAuthService
     {
         // ===== Login: se tiver bypass válido => tokens; senão => challenge (2FA) por e-mail
@@ -288,7 +293,7 @@ namespace VersopayBackend.Services.Auth
 
         // ===== Dispositivo confiável (2FA por e-mail)
         public async Task<DeviceTrustChallengeDto> StartDeviceTrustAsync(
-    int usuarioId, string? ip, string? ua, CancellationToken ct)
+            int usuarioId, string? ip, string? ua, CancellationToken ct)
         {
             await deviceTrustRepo.InvalidateUserOpenAsync(usuarioId, ct);
 
@@ -319,12 +324,10 @@ namespace VersopayBackend.Services.Auth
             }
             catch (OperationCanceledException oce)
             {
-                // Timeout: em DEV, loga o código para você testar; em PRD, mantenha só o log de warning.
                 #if DEBUG
-                // Facilita o teste: você vê o código mesmo se o provedor de e-mail falhar
                 logger.LogWarning(oce, "Timeout ao enviar 2FA; código para {Email}: {Code}", user.Email, code);
                 #else
-                    logger.LogWarning(oce, "Timeout ao enviar código 2FA para {UsuarioId}", usuarioId);
+                logger.LogWarning(oce, "Timeout ao enviar código 2FA para {UsuarioId}", usuarioId);
                 throw new InvalidOperationException("Falha ao enviar o e-mail de verificação (timeout). Tente novamente.");
                 #endif
             }
@@ -367,6 +370,164 @@ namespace VersopayBackend.Services.Auth
             await bypassRepo.SaveChangesAsync(ct);
 
             return (raw, exp); // o controller setará o cookie bptkn
+        }
+
+        public async Task<AuthWithPanelsResult?> ConfirmDeviceTrustAndIssueTokensAsync(
+                    Guid challengeId, string code, string? ip, string? ua, CancellationToken ct)
+        {
+            // 1) valida challenge + marca como usado
+            var ch = await deviceTrustRepo.GetAsync(challengeId, ct);
+            if (ch is null || ch.Used || ch.ExpiresAtUtc <= clock.UtcNow) return null;
+
+            var ok = refreshTokenService.Hash(code) == ch.CodeHash;
+            if (!ok) return null;
+
+            ch.Used = true;
+            await deviceTrustRepo.SaveChangesAsync(ct);
+
+            // 2) cria BypassToken (trusted device) e guarda pra controller setar cookie
+            var (rawByp, hashByp, expByp) = refreshTokenService.Create(TimeSpan.FromDays(60));
+            await bypassRepo.AddAsync(new BypassToken
+            {
+                UsuarioId = ch.UsuarioId,
+                TokenHash = hashByp,
+                ExpiraEmUtc = expByp,
+                Ip = ip,
+                UserAgent = ua
+            }, ct);
+            await bypassRepo.SaveChangesAsync(ct);
+            _pendingBypassCookie = (rawByp, expByp);
+
+            // 3) carrega usuário
+            var usuario = await usuarioRepository.GetByIdAsync(ch.UsuarioId, ct);
+            if (usuario is null) return null;
+
+            // 4) emite access + refresh
+            var access = tokens.CreateToken(usuario, clock.UtcNow, out var accessExp);
+            var (rawRt, hashRt, expRt) = refreshTokenService.Create(TimeSpan.FromDays(7));
+            await usuarioRepository.AddRefreshAsync(new RefreshToken
+            {
+                UsuarioId = usuario.Id,
+                TokenHash = hashRt,
+                ExpiraEmUtc = expRt,
+                Ip = ip,
+                UserAgent = ua
+            }, ct);
+            await usuarioRepository.SaveChangesAsync(ct);
+
+            // 5) monta AuthResponseDto (o que você já tem)
+            var usuarioDto = new UsuarioResponseDto
+            {
+                Id = usuario.Id,
+                Nome = usuario.Nome,
+                Email = usuario.Email,
+                TipoCadastro = usuario.TipoCadastro,
+                Instagram = usuario.Instagram,
+                Telefone = usuario.Telefone,
+                CreatedAt = usuario.DataCriacao,
+                CpfCnpj = usuario.CpfCnpj,
+                CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
+                IsAdmin = usuario.IsAdmin
+            };
+            var authDto = new AuthResponseDto
+            {
+                AccessToken = access,
+                ExpiresAtUtc = accessExp,
+                Usuario = usuarioDto
+            };
+
+            // 6) agrega PERFIL
+            var (qtdVendas, totalVendas) =
+                await pedidoReadRepo.GetVendasAprovadasAsync(usuario.Id, null, null, ct);
+
+            string? cpf = null, cnpj = null;
+            if (!string.IsNullOrWhiteSpace(usuario.CpfCnpj))
+            {
+                var docMask = DocumentoFormatter.Mask(usuario.CpfCnpj);
+                if (usuario.TipoCadastro == TipoCadastro.PF) cpf = docMask;
+                else if (usuario.TipoCadastro == TipoCadastro.PJ) cnpj = docMask;
+            }
+
+            var perfil = new PerfilResumoDto
+            {
+                Nome = usuario.Nome,
+                Email = usuario.Email,
+                Telefone = usuario.Telefone,
+                Instagram = usuario.Instagram,
+                Cpf = cpf,
+                Cnpj = cnpj,
+                VendasQtd = qtdVendas,
+                VendasTotal = totalVendas,
+                // NomeFantasia / RazaoSocial / SiteOuRedeSocial ficam null até existir na sua model
+            };
+
+            // 7) agrega DASHBOARD
+            // saldos (se não existir extrato ainda, zera)
+            var extrato = await extratoRepo.GetByClienteIdAsync(usuario.Id, ct);
+            var saldoDisp = extrato?.SaldoDisponivel ?? 0m;
+            var saldoPend = extrato?.SaldoPendente ?? 0m;
+
+            // stats por método
+            static decimal Rate(int aprov, int total) => total > 0 ? Math.Round((decimal)aprov * 100m / total, 2) : 0m;
+
+            var cartao = await pedidoReadRepo.GetStatsPorMetodoAsync(usuario.Id, MetodoPagamento.Cartao, null, null, ct);
+            var pix = await pedidoReadRepo.GetStatsPorMetodoAsync(usuario.Id, MetodoPagamento.Pix, null, null, ct);
+            var boleto = await pedidoReadRepo.GetStatsPorMetodoAsync(usuario.Id, MetodoPagamento.Boleto, null, null, ct);
+
+            var totalPedidos = cartao.QtdTotal + pix.QtdTotal + boleto.QtdTotal;
+
+            var (qtdCbk, totalCbk) = await pedidoReadRepo.GetChargebackAsync(usuario.Id, null, null, ct);
+            var percCbk = totalPedidos > 0 ? Math.Round((decimal)qtdCbk * 100m / totalPedidos, 2) : 0m;
+
+            var dashboard = new DashboardResumoDto
+            {
+                FaturamentoPeriodo = totalVendas,
+                SaldoDisponivel = saldoDisp,
+                SaldoPendente = saldoPend,
+                Cartao = new MetodoAprovacaoDto
+                {
+                    PercentAprovacao = Rate(cartao.QtdAprovado, cartao.QtdTotal),
+                    QtdAprovado = cartao.QtdAprovado,
+                    TotalAprovado = cartao.TotalAprovado,
+                    QtdTotal = cartao.QtdTotal,
+                    Total = cartao.Total
+                },
+                Pix = new MetodoAprovacaoDto
+                {
+                    PercentAprovacao = Rate(pix.QtdAprovado, pix.QtdTotal),
+                    QtdAprovado = pix.QtdAprovado,
+                    TotalAprovado = pix.TotalAprovado,
+                    QtdTotal = pix.QtdTotal,
+                    Total = pix.Total
+                },
+                Boleto = new MetodoAprovacaoDto
+                {
+                    PercentAprovacao = Rate(boleto.QtdAprovado, boleto.QtdTotal),
+                    QtdAprovado = boleto.QtdAprovado,
+                    TotalAprovado = boleto.TotalAprovado,
+                    QtdTotal = boleto.QtdTotal,
+                    Total = boleto.Total
+                },
+                Chargeback = new ChargebackResumoDto
+                {
+                    PercentualSobreTotalPedidos = percCbk,
+                    Qtd = qtdCbk,
+                    Total = totalCbk
+                }
+            };
+
+            // 8) taxas
+            var taxas = fees.Get(); // seu ITaxasProvider
+
+            var payload = new AuthWithPanelsDto
+            {
+                Auth = authDto,
+                Perfil = perfil,
+                Dashboard = dashboard,
+                Taxas = taxas
+            };
+
+            return new AuthWithPanelsResult(payload, rawRt, expRt);
         }
 
         // ===== util interno p/ passar o novo bypass pro controller (opcional)

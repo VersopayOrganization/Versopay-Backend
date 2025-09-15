@@ -5,18 +5,18 @@ namespace VersopayBackend.Repositories
 {
     public interface IPedidoRepository
     {
-        Task AddAsync(Pedido p, CancellationToken ct);
-        Task<Pedido?> FindByIdAsync(int id, CancellationToken ct);
-        Task<Pedido?> GetByIdNoTrackingAsync(int id, CancellationToken ct);
+        Task AddAsync(Pedido pedido, CancellationToken cancellationToken);
+        Task<Pedido?> FindByIdAsync(int id, CancellationToken cancellationToken);
+        Task<Pedido?> GetByIdNoTrackingAsync(int id, CancellationToken cancellationToken);
         Task<List<Pedido>> GetAllAsync(
             StatusPedido? status,
             int? vendedorId,
             MetodoPagamento? metodo,
-            DateTime? dataDeUtc,
-            DateTime? dataAteUtc,
+            DateTime? dataInicioUtc,
+            DateTime? dataFimUtc,
             int page,
             int pageSize,
-            CancellationToken ct);
-        Task SaveChangesAsync(CancellationToken ct);
+            CancellationToken cancellationToken);
+        Task SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

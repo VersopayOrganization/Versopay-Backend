@@ -104,7 +104,7 @@ namespace VersopayBackend.Services
             if (pedido is null) return false;
 
             pedido.Status = pedidoStatusUpdateDto.Status;
-            if (pedidoStatusUpdateDto.Status == StatusPedido.Pago && pedido.DataPagamento is null)
+            if (pedidoStatusUpdateDto.Status == StatusPedido.Aprovado && pedido.DataPagamento is null)
                 pedido.DataPagamento = DateTime.UtcNow;
 
             await pedidoRepository.SaveChangesAsync(cancellationToken);
@@ -116,7 +116,7 @@ namespace VersopayBackend.Services
             var pedido = await pedidoRepository.FindByIdAsync(id, cancellationToken);
             if (pedido is null) return false;
 
-            pedido.Status = StatusPedido.Pago;
+            pedido.Status = StatusPedido.Aprovado;
             pedido.DataPagamento = pedido.DataPagamento ?? DateTime.UtcNow;
 
             await pedidoRepository.SaveChangesAsync(cancellationToken);

@@ -15,6 +15,7 @@ using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
 using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
+using VersopayBackend.Services.Taxas;
 using VersopayBackend.Services.Webhooks;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
@@ -73,6 +74,7 @@ builder.Services.AddControllers();
 
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
+builder.Services.Configure<TaxasOptions>(builder.Configuration.GetSection("Taxas"));
 
 // DI (removi duplicata de IUsuarioRepository)
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
@@ -93,6 +95,7 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
+builder.Services.AddSingleton<ITaxasProvider, TaxasConfigProvider>();
 
 builder.Services.AddScoped<IBypassTokenRepository, BypassTokenRepository>();
 builder.Services.AddScoped<IDeviceTrustChallengeRepository, DeviceTrustChallengeRepository>();
@@ -109,6 +112,10 @@ builder.Services.AddScoped<IExtratoRepository, ExtratoRepository>();
 builder.Services.AddScoped<IMovimentacaoRepository, MovimentacaoRepository>();
 builder.Services.AddScoped<IExtratoService, ExtratoService>();
 
+builder.Services.AddScoped<IExtratoRepository, ExtratoRepository>();
+builder.Services.AddScoped<IPedidoReadRepository, PedidoRepository>();
+
+builder.Services.AddScoped<IUsuarioAutenticadoService, UsuarioAutenticadoService>();
 
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();

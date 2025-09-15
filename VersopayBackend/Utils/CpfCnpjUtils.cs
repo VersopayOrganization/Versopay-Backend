@@ -19,5 +19,13 @@ namespace VersopayBackend.Utils
             if (x.Length == 14) return Convert.ToUInt64(x).ToString(@"00\.000\.000\/0000\-00");
             return x;
         }
+
+        public static (string? cpf, string? cnpj) SplitCpfCnpj(string? doc)
+        {
+            var digits = new string((doc ?? "").Where(char.IsDigit).ToArray());
+            if (digits.Length == 11) return (digits, null);
+            if (digits.Length == 14) return (null, digits);
+            return (null, null);
+        }
     }
 }
