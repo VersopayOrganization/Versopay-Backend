@@ -106,7 +106,21 @@ namespace VersopayBackend.Services.Auth
                 CreatedAt = usuario.DataCriacao,
                 CpfCnpj = usuario.CpfCnpj,
                 CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
-                IsAdmin = usuario.IsAdmin
+                IsAdmin = usuario.IsAdmin,
+                NomeFantasia = usuario.NomeFantasia,
+                RazaoSocial = usuario.RazaoSocial,
+                Site = usuario.Site,
+                EnderecoCep = usuario.EnderecoCep,
+                EnderecoLogradouro = usuario.EnderecoLogradouro,
+                EnderecoNumero = usuario.EnderecoNumero,
+                EnderecoComplemento = usuario.EnderecoComplemento,
+                EnderecoBairro = usuario.EnderecoBairro,
+                EnderecoCidade = usuario.EnderecoCidade,
+                EnderecoUF = usuario.EnderecoUF,
+                NomeCompletoBanco = usuario.NomeCompletoBanco,
+                CpfCnpjDadosBancarios = DocumentoFormatter.Mask(usuario.CpfCnpjDadosBancarios),
+                ChavePix = usuario.ChavePix,
+                ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
             };
 
             var resp = new AuthResponseDto
