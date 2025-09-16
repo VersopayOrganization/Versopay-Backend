@@ -53,6 +53,7 @@ namespace VersopayDatabase.Data
             usuario.Property(x => x.EnderecoUF).HasMaxLength(2);
 
             usuario.Property(x => x.NomeCompletoBanco).HasMaxLength(160);
+            usuario.Property(x => x.CpfCnpjDadosBancarios).HasMaxLength(14);
             usuario.Property(x => x.ChavePix).HasMaxLength(120);
             usuario.Property(x => x.ChaveCarteiraCripto).HasMaxLength(120);
 

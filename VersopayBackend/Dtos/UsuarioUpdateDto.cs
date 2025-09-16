@@ -35,16 +35,29 @@ namespace VersopayBackend.Dtos
 
         // Financeiro
         [MaxLength(160)] public string? NomeCompletoBanco { get; set; }
+        public string? CpfCnpjDadosBancarios { get; set; }
+        public string? CpfCnpjDadosBancariosFormatado { get; set; }
         [MaxLength(120)] public string? ChavePix { get; set; }
         [MaxLength(120)] public string? ChaveCarteiraCripto { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext _)
         {
             var digits = new string((CpfCnpj ?? "").Where(char.IsDigit).ToArray());
+            var digitsCpfCnpjDadosBancarios = new string((CpfCnpjDadosBancarios ?? "").Where(char.IsDigit).ToArray());
             if (TipoCadastro == TipoCadastro.PF && digits.Length != 11)
                 yield return new ValidationResult("CPF deve ter 11 dígitos.", new[] { nameof(CpfCnpj) });
             if (TipoCadastro == TipoCadastro.PJ && digits.Length != 14)
                 yield return new ValidationResult("CNPJ deve ter 14 dígitos.", new[] { nameof(CpfCnpj) });
+
+            if (TipoCadastro == TipoCadastro.PF && digitsCpfCnpjDadosBancarios.Length != 11)
+                yield return new ValidationResult("CPF deve ter 11 dígitos.", new[] { nameof(CpfCnpj) });
+
+            if (TipoCadastro == TipoCadastro.PJ)
+            {
+                var chosen = digitsCpfCnpjDadosBancarios.Length > 0 ? digitsCpfCnpjDadosBancarios : digitsCpfCnpjDadosBancarios;
+                if (chosen.Length != 14)
+                    yield return new ValidationResult("CNPJ deve ter 14 dígitos.", new[] { nameof(digitsCpfCnpjDadosBancarios), nameof(CpfCnpj) });
+            }
 
             if (!string.IsNullOrWhiteSpace(EnderecoUF) && EnderecoUF!.Length != 2)
                 yield return new ValidationResult("UF deve ter 2 letras.", new[] { nameof(EnderecoUF) });

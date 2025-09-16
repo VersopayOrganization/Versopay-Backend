@@ -44,6 +44,7 @@ namespace VersopayLibrary.Models
 
         // Financeiro
         [MaxLength(160)] public string? NomeCompletoBanco { get; set; }
+        [MaxLength(14)] public string? CpfCnpjDadosBancarios { get; set; }
         [MaxLength(120)] public string? ChavePix { get; set; }          // e-mail, aleatória, cpf/cnpj, etc
         [MaxLength(120)] public string? ChaveCarteiraCripto { get; set; }
 
