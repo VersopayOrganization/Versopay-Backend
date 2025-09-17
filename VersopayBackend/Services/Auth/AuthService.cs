@@ -530,6 +530,11 @@ namespace VersopayBackend.Services.Auth
             return new AuthWithPanelsResult(payload, rawRt, expRt);
         }
 
+        public async Task SendWelcomeEmail(string email, string nome, CancellationToken ct)
+        {
+            await emailEnvio.EnvioBoasVindasAsync(email, nome, ct);
+        }
+
         // ===== util interno p/ passar o novo bypass pro controller (opcional)
         private (string Raw, DateTime Exp)? _pendingBypassCookie;
         public (string Raw, DateTime Exp)? ConsumePendingBypassCookie()
