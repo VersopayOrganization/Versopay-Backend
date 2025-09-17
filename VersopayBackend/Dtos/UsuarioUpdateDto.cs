@@ -43,9 +43,9 @@ namespace VersopayBackend.Dtos
         {
             // valida o documento principal conforme TipoCadastro
             var digits = new string((CpfCnpj ?? "").Where(char.IsDigit).ToArray());
-            if (TipoCadastro == TipoCadastro.PF && digits.Length != 11)
+            if (digits.Length < 13 && digits.Length != 11)
                 yield return new ValidationResult("CPF deve ter 11 dígitos.", new[] { nameof(CpfCnpj) });
-            if (TipoCadastro == TipoCadastro.PJ && digits.Length != 14)
+            if (digits.Length > 13 && digits.Length != 14)
                 yield return new ValidationResult("CNPJ deve ter 14 dígitos.", new[] { nameof(CpfCnpj) });
 
             // valida bancário apenas se informado
