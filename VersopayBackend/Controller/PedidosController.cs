@@ -10,7 +10,7 @@ namespace VersopayBackend.Controllers
     public class PedidosController(IPedidosService svc) : ControllerBase
     {
         [HttpPost]
-        public async Task<ActionResult<PedidoResponseDto>> Create([FromBody] PedidoCreateDto dto, CancellationToken ct)
+        public async Task<ActionResult<PedidoDto>> Create([FromBody] PedidoCreateDto dto, CancellationToken ct)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
@@ -22,7 +22,7 @@ namespace VersopayBackend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PedidoResponseDto>>> GetAll(
+        public async Task<ActionResult<IEnumerable<PedidoDto>>> GetAll(
             [FromQuery] string? status,
             [FromQuery] int? vendedorId,
             [FromQuery] string? metodo,
@@ -37,7 +37,7 @@ namespace VersopayBackend.Controllers
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<PedidoResponseDto>> GetById(int id, CancellationToken ct)
+        public async Task<ActionResult<PedidoDto>> GetById(int id, CancellationToken ct)
         {
             var res = await svc.GetByIdAsync(id, ct);
             return res is null ? NotFound() : Ok(res);

@@ -10,7 +10,7 @@ namespace VersopayBackend.Services
         IPedidoRepository pedidoRepository,
         IUsuarioRepository usuarioRepository) : IPedidosService
     {
-        public async Task<PedidoResponseDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken)
+        public async Task<PedidoDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken)
         {
             // valida vendedor
             var vendedor = await usuarioRepository.GetByIdNoTrackingAsync(pedidoCreateDto.VendedorId, cancellationToken);
@@ -34,7 +34,7 @@ namespace VersopayBackend.Services
             await pedidoRepository.AddAsync(pedido, cancellationToken);
             await pedidoRepository.SaveChangesAsync(cancellationToken);
 
-            return new PedidoResponseDto
+            return new PedidoDto
             {
                 Id = pedido.Id,
                 Criacao = pedido.Criacao,
@@ -49,7 +49,7 @@ namespace VersopayBackend.Services
             };
         }
 
-        public async Task<PedidosTotalResponseDto> GetAllAsync(
+        public async Task<PedidosResponseDto> GetAllAsync(
             string? status, int? vendedorId, string? metodo,
             DateTime? dataDeUtc, DateTime? dataAteUtc, int page, int pageSize,
             CancellationToken cancellationToken)
@@ -64,9 +64,9 @@ namespace VersopayBackend.Services
 
             var count = await pedidoRepository.GetCountAllAsync(st, vendedorId, mp, dataDeUtc, dataAteUtc, cancellationToken);
             var list = await pedidoRepository.GetAllAsync(st, vendedorId, mp, dataDeUtc, dataAteUtc, page, pageSize, cancellationToken);
-            return new PedidosTotalResponseDto
+            return new PedidosResponseDto
             {
-                Pedidos = list.Select(pedidoResponseDto => new PedidoResponseDto
+                Pedidos = list.Select(pedidoResponseDto => new PedidoDto
                 {
                     Id = pedidoResponseDto.Id,
                     Criacao = pedidoResponseDto.Criacao,
@@ -83,12 +83,12 @@ namespace VersopayBackend.Services
             };
         }
 
-        public async Task<PedidoResponseDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
+        public async Task<PedidoDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
         {
             var pedidoResponseDto = await pedidoRepository.GetByIdNoTrackingAsync(id, cancellationToken);
             if (pedidoResponseDto is null) return null;
 
-            return new PedidoResponseDto
+            return new PedidoDto
             {
                 Id = pedidoResponseDto.Id,
                 Criacao = pedidoResponseDto.Criacao,
