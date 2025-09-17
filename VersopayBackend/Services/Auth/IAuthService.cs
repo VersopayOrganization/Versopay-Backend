@@ -20,5 +20,7 @@ namespace VersopayBackend.Services.Auth
         (string Raw, DateTime Exp)? ConsumePendingBypassCookie();
         Task<AuthWithPanelsResult?> ConfirmDeviceTrustAndIssueTokensAsync(
                         Guid challengeId, string code, string? ip, string? ua, CancellationToken ct);
+
+        Task SendWelcomeEmail(string email, string nome, CancellationToken ct);
     }
 }

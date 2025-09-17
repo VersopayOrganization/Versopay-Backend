@@ -5,5 +5,6 @@
         Task EnvioResetSenhaAsync(string email, string nome, string resetLink, CancellationToken cancellationToken);
         // novo para ativação do device por e-mail
         Task EnvioCodigo2FAAsync(string email, string nome, string code, CancellationToken ct);
+        Task EnvioBoasVindasAsync(string email, string nome, CancellationToken ct);
     }
 }
