@@ -128,6 +128,8 @@ namespace VersopayBackend.Services
 
             // Financeiro
             usuario.NomeCompletoBanco = string.IsNullOrWhiteSpace(usuarioUpdateDto.NomeCompletoBanco) ? null : usuarioUpdateDto.NomeCompletoBanco.Trim();
+            var bankDigits = new string((usuarioUpdateDto.CpfCnpjDadosBancarios ?? "").Where(char.IsDigit).ToArray());
+            usuario.CpfCnpjDadosBancarios = string.IsNullOrWhiteSpace(bankDigits) ? null : bankDigits;
             usuario.ChavePix = string.IsNullOrWhiteSpace(usuarioUpdateDto.ChavePix) ? null : usuarioUpdateDto.ChavePix.Trim();
             usuario.ChaveCarteiraCripto = string.IsNullOrWhiteSpace(usuarioUpdateDto.ChaveCarteiraCripto) ? null : usuarioUpdateDto.ChaveCarteiraCripto.Trim();
 
@@ -162,6 +164,8 @@ namespace VersopayBackend.Services
                 EnderecoUF = usuario.EnderecoUF,
 
                 NomeCompletoBanco = usuario.NomeCompletoBanco,
+                CpfCnpjDadosBancarios = usuario.CpfCnpjDadosBancarios,
+                CpfCnpjDadosBancariosFormatado = DocumentoFormatter.Mask(usuario.CpfCnpjDadosBancarios),
                 ChavePix = usuario.ChavePix,
                 ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
             };

@@ -35,6 +35,8 @@ namespace VersopayBackend.Dtos
         public string? EnderecoUF { get; set; }
 
         public string? NomeCompletoBanco { get; set; }
+        public string? CpfCnpjDadosBancarios { get; set; }
+        public string? CpfCnpjDadosBancariosFormatado { get; set; }
         public string? ChavePix { get; set; }
         public string? ChaveCarteiraCripto { get; set; }
     }

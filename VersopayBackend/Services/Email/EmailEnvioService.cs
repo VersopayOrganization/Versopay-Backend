@@ -73,26 +73,44 @@ public sealed class EmailEnvioService : IEmailEnvioService
 
     public async Task EnvioCodigo2FAAsync(string email, string nome, string code, CancellationToken ct)
     {
-        var subject = "Seu código de verificação (VersoPay)";
-        var html = $@"
-        <html><body style=""font-family:Arial,sans-serif"">
-          <p>Olá <strong>{WebUtility.HtmlEncode(nome)}</strong>,</p>
-          <p>Seu código de verificação é:</p>
-          <p style=""font-size:28px;font-weight:bold;letter-spacing:4px"">{WebUtility.HtmlEncode(code)}</p>
-          <p>Ele expira em 10 minutos.</p>
-          <p>Se você não tentou entrar, ignore este e-mail.</p>
-        </body></html>";
+        const string cidLogo = "logo-versopay";
+        var logoPath = Path.Combine(_env.WebRootPath ?? "wwwroot", "email", "logo-versopay.png");
+        var hasLocalLogo = File.Exists(logoPath);
+
+        var html = BuildTokenTemplate(
+            nome: nome,
+            code: code,
+            cidLogo: hasLocalLogo ? cidLogo : null,
+            logoUrlFallback: !hasLocalLogo ? _brand.LogoUrl : null
+        );
 
         using var msg = new MailMessage
         {
             From = new MailAddress(_smtp.FromAddress, _smtp.FromName),
-            Subject = subject,
-            Body = html,
+            Subject = "Seu código de verificação - VersoPay",
             IsBodyHtml = true,
             BodyEncoding = Encoding.UTF8,
-            SubjectEncoding = Encoding.UTF8
+            SubjectEncoding = Encoding.UTF8,
+            HeadersEncoding = Encoding.UTF8
         };
         msg.To.Add(new MailAddress(email, nome));
+
+        // corpo HTML via AlternateView para suportar CID
+        var htmlView = AlternateView.CreateAlternateViewFromString(html, Encoding.UTF8, MediaTypeNames.Text.Html);
+
+        if (hasLocalLogo)
+        {
+            var logo = new LinkedResource(logoPath, "image/png")
+            {
+                ContentId = cidLogo,
+                TransferEncoding = TransferEncoding.Base64,
+                ContentType = { Name = "logo-versopay.png" },
+                ContentLink = new Uri($"cid:{cidLogo}")
+            };
+            htmlView.LinkedResources.Add(logo);
+        }
+
+        msg.AlternateViews.Add(htmlView);
 
         await SendCoreAsync(msg, ct);
     }
