@@ -17,6 +17,14 @@ namespace VersopayBackend.Repositories
             int page,
             int pageSize,
             CancellationToken cancellationToken);
+
+        Task<int> GetCountAllAsync(
+            StatusPedido? status,
+            int? vendedorId,
+            MetodoPagamento? metodo,
+            DateTime? dataInicioUtc,
+            DateTime? dataFimUtc,
+            CancellationToken cancellationToken);
         Task SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

@@ -86,6 +86,28 @@ namespace VersopayBackend.Repositories
                           .ToListAsync(cancellationToken);
         }
 
+        public async Task<int> GetCountAllAsync(
+            StatusPedido? status,
+            int? vendedorId,
+            MetodoPagamento? metodo,
+            DateTime? dataDeUtc,
+            DateTime? dataAteUtc,
+            CancellationToken cancellationToken)
+        {
+
+            var query = appDbContext.Pedidos.AsNoTracking()
+                              .Include(pedido => pedido.Vendedor)
+                              .AsQueryable();
+
+            if (status.HasValue) query = query.Where(pedido => pedido.Status == status.Value);
+            if (vendedorId.HasValue) query = query.Where(pedido => pedido.VendedorId == vendedorId.Value);
+            if (metodo.HasValue) query = query.Where(pedido => pedido.MetodoPagamento == metodo.Value);
+            if (dataDeUtc.HasValue) query = query.Where(pedido => pedido.Criacao >= dataDeUtc.Value);
+            if (dataAteUtc.HasValue) query = query.Where(pedido => pedido.Criacao < dataAteUtc.Value);
+
+            return await query.CountAsync(cancellationToken);
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);
     }
 }

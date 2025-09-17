@@ -5,7 +5,7 @@ namespace VersopayBackend.Services
     public interface IPedidosService
     {
         Task<PedidoResponseDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken);
-        Task<IEnumerable<PedidoResponseDto>> GetAllAsync(
+        Task<PedidosTotalResponseDto> GetAllAsync(
             string? status, int? vendedorId, string? metodo,
             DateTime? dataDeUtc, DateTime? dataAteUtc, int page, int pageSize,
             CancellationToken cancellationToken);
