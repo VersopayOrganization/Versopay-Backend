@@ -26,13 +26,13 @@ namespace VersopayBackend.Controllers
             [FromQuery] string? status,
             [FromQuery] int? vendedorId,
             [FromQuery] string? metodo,
-            [FromQuery] DateTime? dataDeUtc,
-            [FromQuery] DateTime? dataAteUtc,
+            [FromQuery] DateTime? dataDe,
+            [FromQuery] DateTime? dataAte,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             CancellationToken ct = default)
         {
-            var list = await svc.GetAllAsync(status, vendedorId, metodo, dataDeUtc, dataAteUtc, page, pageSize, ct);
+            var list = await svc.GetAllAsync(status, vendedorId, metodo, dataDe, dataAte, page, pageSize, ct);
             return Ok(list);
         }
 
