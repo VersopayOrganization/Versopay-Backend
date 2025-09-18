@@ -20,6 +20,8 @@ namespace VersopayDatabase.Data
         public DbSet<Transferencia> Transferencias => Set<Transferencia>();
         public DbSet<Extrato> Extratos => Set<Extrato>();
         public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
+        public DbSet<Faturamento> Faturamentos => Set<Faturamento>();
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -91,7 +93,7 @@ namespace VersopayDatabase.Data
             var refreshToken = modelBuilder.Entity<RefreshToken>();
             refreshToken.HasKey(x => x.Id);
             refreshToken.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
-            refreshToken.HasIndex(x => x.TokenHash).IsUnique(); 
+            refreshToken.HasIndex(x => x.TokenHash).IsUnique();
             refreshToken.HasOne(x => x.Usuario)
               .WithMany()
               .HasForeignKey(x => x.UsuarioId)
@@ -121,7 +123,7 @@ namespace VersopayDatabase.Data
              .IsRequired();
 
             pedido.HasOne(x => x.Vendedor)
-             .WithMany() 
+             .WithMany()
              .HasForeignKey(x => x.VendedorId)
              .OnDelete(DeleteBehavior.Restrict);
 
@@ -146,10 +148,10 @@ namespace VersopayDatabase.Data
             kycKyb.Property(x => x.NumeroDocumento)
              .HasMaxLength(64);
 
-            kycKyb.Property(x => x.DataAprovacao); 
+            kycKyb.Property(x => x.DataAprovacao);
 
             kycKyb.HasOne(x => x.Usuario)
-             .WithMany() 
+             .WithMany()
              .HasForeignKey(x => x.UsuarioId)
              .OnDelete(DeleteBehavior.Cascade);
 
@@ -161,7 +163,7 @@ namespace VersopayDatabase.Data
             var antecipacao = modelBuilder.Entity<Antecipacao>();
             antecipacao.HasKey(x => x.Id);
 
-            antecipacao.Property(x => x.DataSolicitacao).IsRequired(); 
+            antecipacao.Property(x => x.DataSolicitacao).IsRequired();
             antecipacao.Property(x => x.Status).IsRequired();
 
             antecipacao.Property(x => x.Valor)
@@ -169,7 +171,7 @@ namespace VersopayDatabase.Data
                 .IsRequired();
 
             antecipacao.HasOne(x => x.Empresa)
-                .WithMany()                  
+                .WithMany()
                 .HasForeignKey(x => x.EmpresaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -279,6 +281,24 @@ namespace VersopayDatabase.Data
                .OnDelete(DeleteBehavior.Cascade);
 
             movimentacaoFinanceira.HasIndex(x => new { x.ClienteId, x.Status, x.CriadoEmUtc });
+
+            var faturamento = modelBuilder.Entity<Faturamento>();
+            faturamento.HasKey(x => x.Id);
+
+            faturamento.Property(x => x.CpfCnpj).HasMaxLength(14).IsRequired();
+
+            faturamento.Property(x => x.VendasTotais).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.VendasCartao).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.VendasBoleto).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.VendasPix).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.Reserva).HasColumnType("decimal(18,2)");
+
+            faturamento.Property(x => x.DataInicio).IsRequired();
+            faturamento.Property(x => x.DataFim).IsRequired();
+            faturamento.Property(x => x.AtualizadoEmUtc).IsRequired();
+
+            faturamento.HasIndex(x => x.CpfCnpj);
+            faturamento.HasIndex(x => new { x.CpfCnpj, x.DataInicio, x.DataFim });
         }
     }
 }
