@@ -1,7 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using VersopayLibrary.Models;
-using Tipo = VersopayLibrary.Models.TipoCadastro; // << alias p/ o TIPO, evita colisão
-
+using Tipo = VersopayLibrary.Models.TipoCadastro;
 
 namespace VersopayBackend.Dtos
 {

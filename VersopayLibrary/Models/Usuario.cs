@@ -53,5 +53,7 @@ namespace VersopayLibrary.Models
 
         // 1:1
         public Documento? Documento { get; set; }
+
+        public bool CadastroCompleto { get; set; } = false;
     }
 }
