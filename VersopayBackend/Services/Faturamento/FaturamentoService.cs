@@ -80,8 +80,8 @@ namespace VersopayBackend.Services
                     status: StatusPedido.Cancelado,
                     vendedorId: vendedorId.Value,
                     metodo: null,
-                    dataDeUtc: inicio,
-                    dataAteUtc: fim,
+                    dataInicio: inicio,
+                    dataFim: fim,
                     page: 1,
                     pageSize: 1_000_000,
                     cancellationToken: ct
@@ -93,8 +93,8 @@ namespace VersopayBackend.Services
                     status: StatusPedido.Aprovado,
                     vendedorId: vendedorId.Value,
                     metodo: null,
-                    dataDeUtc: inicio,
-                    dataAteUtc: fim,
+                    dataInicio: inicio,
+                    dataFim: fim,
                     page: 1,
                     pageSize: 1_000_000,
                     cancellationToken: ct
