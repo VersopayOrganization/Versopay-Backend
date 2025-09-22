@@ -26,5 +26,8 @@ namespace VersopayLibrary.Models
         public string? Produto { get; set; }
 
         public StatusPedido Status { get; set; } = StatusPedido.Pendente;
+
+        public string? ExternalId { get; set; }             // seu id/controle (idempotência)
+        public string? GatewayTransactionId { get; set; }   // id que vem do provedor (para casar no webhook)
     }
 }

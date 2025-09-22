@@ -10,6 +10,7 @@ namespace VersopayLibrary.Enums
     {
         PendenteAnalise = 0,
         Concluido = 1,
-        Cancelado = 2
+        Cancelado = 2,
+        RetidoMed = 3 // opcional
     }
 }
