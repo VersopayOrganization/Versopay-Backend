@@ -123,6 +123,7 @@ builder.Services.AddScoped<IPedidoReadRepository, PedidoRepository>();
 
 builder.Services.AddScoped<IUsuarioAutenticadoService, UsuarioAutenticadoService>();
 
+
 // Swagger + Bearer
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

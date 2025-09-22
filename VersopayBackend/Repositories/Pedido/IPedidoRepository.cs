@@ -12,8 +12,8 @@ namespace VersopayBackend.Repositories
             StatusPedido? status,
             int? vendedorId,
             MetodoPagamento? metodo,
-            DateTime? dataDe,
-            DateTime? dataAte,
+            DateTime? dataInicio,
+            DateTime? dataFim,
             int page,
             int pageSize,
             CancellationToken cancellationToken);
@@ -22,8 +22,8 @@ namespace VersopayBackend.Repositories
             StatusPedido? status,
             int? vendedorId,
             MetodoPagamento? metodo,
-            DateTime? dataDe,
-            DateTime? dataAte,
+            DateTime? dataInicio,
+            DateTime? dataFim,
             CancellationToken cancellationToken);
         Task SaveChangesAsync(CancellationToken cancellationToken);
     }
