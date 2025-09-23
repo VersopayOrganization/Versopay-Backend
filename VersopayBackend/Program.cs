@@ -16,7 +16,8 @@ using VersopayBackend.Services.Email;
 using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
 using VersopayBackend.Services.Taxas;
-using VersopayBackend.Services.Webhooks;
+using VersopayBackend.Services.Webhook;
+
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
@@ -105,6 +106,11 @@ builder.Services.AddScoped<IAntecipacoesService, AntecipacoesService>();
 
 builder.Services.AddScoped<IWebhookRepository, WebhookRepository>();
 builder.Services.AddScoped<IWebhooksService, WebhooksService>();
+builder.Services.AddScoped<IInboundWebhookLogRepository, InboundWebhookLogRepository>();
+builder.Services.AddScoped<IPedidoMatchRepository, PedidoMatchRepository>();
+builder.Services.AddScoped<ITransferenciaMatchRepository, TransferenciaMatchRepository>();
+builder.Services.AddScoped<IInboundWebhookService, InboundWebhookService>();
+
 builder.Services.AddScoped<ITransferenciaRepository, TransferenciaRepository>();
 builder.Services.AddScoped<ITransferenciasService, TransferenciasService>();
 

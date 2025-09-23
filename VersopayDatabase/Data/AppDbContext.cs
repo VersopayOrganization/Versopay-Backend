@@ -127,10 +127,16 @@ namespace VersopayDatabase.Data
              .HasForeignKey(x => x.VendedorId)
              .OnDelete(DeleteBehavior.Restrict);
 
+            pedido.Property(x => x.ExternalId).HasMaxLength(80);
+            pedido.Property(x => x.GatewayTransactionId).HasMaxLength(80);
+            pedido.HasIndex(x => x.ExternalId);
+            pedido.HasIndex(x => x.GatewayTransactionId);
+
             // Índices úteis
             pedido.HasIndex(x => x.VendedorId);
             pedido.HasIndex(x => new { x.Status, x.Criacao });
             pedido.HasIndex(x => x.MetodoPagamento);
+
 
             var kycKyb = modelBuilder.Entity<KycKyb>();
             kycKyb.HasKey(x => x.Id);
@@ -194,6 +200,17 @@ namespace VersopayDatabase.Data
             webhook.HasIndex(x => x.Ativo);
             webhook.HasIndex(x => x.Eventos);
 
+            var inb = modelBuilder.Entity<InboundWebhookLog>();
+            inb.HasKey(x => x.Id);
+            inb.Property(x => x.EventKey).HasMaxLength(180).IsRequired();
+            inb.HasIndex(x => x.EventKey).IsUnique();
+
+            inb.Property(x => x.TransactionId).HasMaxLength(80);
+            inb.Property(x => x.ExternalId).HasMaxLength(80);
+            inb.Property(x => x.RequestNumber).HasMaxLength(80);
+            inb.Property(x => x.Status).HasMaxLength(40);
+            inb.Property(x => x.TipoTransacao).HasMaxLength(20);
+
 
             var bypassToken = modelBuilder.Entity<BypassToken>();
             bypassToken.HasKey(x => x.Id);
@@ -243,6 +260,11 @@ namespace VersopayDatabase.Data
             transferencia.Property(x => x.Nome).HasMaxLength(120);
             transferencia.Property(x => x.Empresa).HasMaxLength(160);
             transferencia.Property(x => x.ChavePix).HasMaxLength(120);
+
+            transferencia.Property(x => x.ExternalId).HasMaxLength(80);
+            transferencia.Property(x => x.GatewayTransactionId).HasMaxLength(80);
+            transferencia.HasIndex(x => x.ExternalId);
+            transferencia.HasIndex(x => x.GatewayTransactionId);
 
             transferencia.HasOne(x => x.Solicitante)
                 .WithMany()

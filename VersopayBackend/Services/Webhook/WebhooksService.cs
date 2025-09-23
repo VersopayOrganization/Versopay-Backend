@@ -9,7 +9,7 @@ using VersopayBackend.Utils;
 using VersopayLibrary.Enums;
 using WebhookModel = VersopayLibrary.Models.Webhook; 
 
-namespace VersopayBackend.Services.Webhooks
+namespace VersopayBackend.Services.Webhook
 {
     public sealed class WebhooksService(IWebhookRepository webhookRepository, ILogger<WebhooksService> logger) : IWebhooksService
     {
@@ -34,9 +34,9 @@ namespace VersopayBackend.Services.Webhooks
 
         public async Task<IEnumerable<WebhookResponseDto>> GetAllAsync(bool? ativo, CancellationToken cancellationToken)
         {
-            var query = webhookRepository.QueryNoTracking().OrderByDescending(x => x.CriadoEmUtc);
+            var query = webhookRepository.QueryNoTracking().OrderByDescending(webhookModel => webhookModel.CriadoEmUtc);
             if (ativo.HasValue)
-                query = query.Where(x => x.Ativo == ativo.Value).OrderByDescending(x => x.CriadoEmUtc);
+                query = query.Where(webhookModel => webhookModel.Ativo == ativo.Value).OrderByDescending(x => x.CriadoEmUtc);
 
             var lista = await query.ToListAsync(cancellationToken);
             return lista.Select(Map);
@@ -87,7 +87,7 @@ namespace VersopayBackend.Services.Webhooks
             };
 
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            using var req = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
+            using var request = new HttpRequestMessage(HttpMethod.Post, webhook.Url)
             {
                 Content = JsonContent.Create(envelope)
             };
@@ -96,14 +96,14 @@ namespace VersopayBackend.Services.Webhooks
             {
                 var body = System.Text.Json.JsonSerializer.Serialize(envelope);
                 var sig = WebhookSigning.SignBodySha256(body, webhook.Secret!);
-                req.Headers.Add("X-Versopay-Signature", $"sha256={sig}");
-                req.Headers.Add("X-Versopay-Event", payload.Tipo);
+                request.Headers.Add("X-Versopay-Signature", $"sha256={sig}");
+                request.Headers.Add("X-Versopay-Event", payload.Tipo);
             }
 
             try
             {
-                var resp = await http.SendAsync(req, cancellationToken);
-                return resp.IsSuccessStatusCode;
+                var response = await http.SendAsync(request, cancellationToken);
+                return response.IsSuccessStatusCode;
             }
             catch (Exception ex)
             {
@@ -115,9 +115,9 @@ namespace VersopayBackend.Services.Webhooks
         private static WebhookEvent ParseEventos(IEnumerable<string> nomes)
         {
             WebhookEvent flags = WebhookEvent.None;
-            foreach (var n in nomes ?? Array.Empty<string>())
+            foreach (var nome in nomes ?? Array.Empty<string>())
             {
-                if (Enum.TryParse<WebhookEvent>(n, ignoreCase: true, out var webhookEvent))
+                if (Enum.TryParse<WebhookEvent>(nome, ignoreCase: true, out var webhookEvent))
                     flags |= webhookEvent;
             }
             return flags;
@@ -137,8 +137,8 @@ namespace VersopayBackend.Services.Webhooks
 
         private static string[] ExpandEventos(WebhookEvent flags) =>
             Enum.GetValues<WebhookEvent>()
-                .Where(v => v != WebhookEvent.None && flags.HasFlag(v))
-                .Select(v => v.ToString())
+                .Where(webhookEvent => webhookEvent != WebhookEvent.None && flags.HasFlag(webhookEvent))
+                .Select(webhookEvent => webhookEvent.ToString())
                 .ToArray();
     }
 }

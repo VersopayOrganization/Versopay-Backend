@@ -19,4 +19,27 @@ namespace VersopayLibrary.Enums
         Chargeback = 1 << 6,
         Processando = 1 << 7
     }
+
+    public enum ProvedorWebhook 
+    { 
+        VersellPay = 0, 
+        VexyPayments = 1 
+    }
+
+    public enum WebhookEvento
+    {
+        Desconhecido = 0,
+        DepositoPago = 10,     // Versell: PAID_OUT | Vexy: COMPLETED (depósito)
+        Chargeback = 11,       // Versell: CHARGEBACK
+        SaqueConcluido = 20,   // Vexy: COMPLETED (saque)
+        SaqueRetidoMED = 21    // Vexy: MED/RETIDO
+    }
+
+    public enum ProcessingStatus 
+    { 
+        Success = 0,
+        Duplicate = 1, 
+        InvalidAuth = 2,
+        Error = 3 
+    }
 }
