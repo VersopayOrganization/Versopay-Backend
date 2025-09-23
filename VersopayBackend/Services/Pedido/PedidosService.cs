@@ -50,20 +50,13 @@ namespace VersopayBackend.Services
         }
 
         public async Task<PedidosResponseDto> GetAllAsync(
-            string? status, int? vendedorId, string? metodo,
+            StatusPedido? status, int? vendedorId, MetodoPagamento? metodo,
             DateTime? dataInicio, DateTime? dataFim, int page, int pageSize,
             CancellationToken cancellationToken)
         {
-            StatusPedido? statusPedido = null;
-            if (!string.IsNullOrWhiteSpace(status) &&
-                Enum.TryParse<StatusPedido>(status, true, out var sParsed)) statusPedido = sParsed;
 
-            MetodoPagamento? metodoPagamento = null;
-            if (!string.IsNullOrWhiteSpace(metodo) &&
-                Enum.TryParse<MetodoPagamento>(metodo, true, out var mParsed)) metodoPagamento = mParsed;
-
-            var count = await pedidoRepository.GetCountAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, cancellationToken);
-            var list = await pedidoRepository.GetAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, page, pageSize, cancellationToken);
+            var count = await pedidoRepository.GetCountAllAsync(status, vendedorId, metodo, dataInicio, dataFim, cancellationToken);
+            var list = await pedidoRepository.GetAllAsync(status, vendedorId, metodo, dataInicio, dataFim, page, pageSize, cancellationToken);
             return new PedidosResponseDto
             {
                 Pedidos = list.Select(pedidoResponseDto => new PedidoDto

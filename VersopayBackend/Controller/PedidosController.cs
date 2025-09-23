@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
 using VersopayBackend.Services;
+using VersopayLibrary.Enums;
 
 namespace VersopayBackend.Controllers
 {
@@ -23,9 +24,9 @@ namespace VersopayBackend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PedidoDto>>> GetAll(
-            [FromQuery] string? status,
+            [FromQuery] StatusPedido? status,
             [FromQuery] int? vendedorId,
-            [FromQuery] string? metodo,
+            [FromQuery] MetodoPagamento? metodo,
             [FromQuery] DateTime? dataDe,
             [FromQuery] DateTime? dataAte,
             [FromQuery] int page = 1,
