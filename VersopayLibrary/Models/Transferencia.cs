@@ -39,6 +39,8 @@ namespace VersopayLibrary.Models
 
         public TipoEnvioManual? TipoEnvio { get; set; }
 
+        public MetodoPagamento MetodoPagamento { get; set; }
+
         public decimal? Taxa { get; set; }
         public decimal? ValorFinal { get; set; }
 
