@@ -31,7 +31,8 @@ namespace VersopayBackend.Services
             var usuario = new Usuario
             {
                 Nome = usuarioCreateDto.Nome.Trim(),
-                Email = email
+                Email = email,
+                CadastroCompleto = false
             };
 
             var hasher = new PasswordHasher<Usuario>();
@@ -62,6 +63,7 @@ namespace VersopayBackend.Services
                 (usuarioCompletarCadastroDto.Instagram.StartsWith("@") ? usuarioCompletarCadastroDto.Instagram.Trim() : "@" + usuarioCompletarCadastroDto.Instagram.Trim());
             usuario.Telefone = usuarioCompletarCadastroDto.Telefone;
             usuario.DataAtualizacao = DateTime.UtcNow;
+            usuario.CadastroCompleto = true;
 
             await usuarioRepository.SaveChangesAsync(cancellationToken);
 

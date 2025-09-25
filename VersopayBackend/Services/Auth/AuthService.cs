@@ -120,7 +120,8 @@ namespace VersopayBackend.Services.Auth
                 NomeCompletoBanco = usuario.NomeCompletoBanco,
                 CpfCnpjDadosBancarios = DocumentoFormatter.Mask(usuario.CpfCnpjDadosBancarios),
                 ChavePix = usuario.ChavePix,
-                ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
+                ChaveCarteiraCripto = usuario.ChaveCarteiraCripto,
+                CadastroCompleto = usuario.CadastroCompleto
             };
 
             var resp = new AuthResponseDto
@@ -192,7 +193,8 @@ namespace VersopayBackend.Services.Auth
                     NomeCompletoBanco = usuario.NomeCompletoBanco,
                     CpfCnpjDadosBancarios = DocumentoFormatter.Mask(usuario.CpfCnpjDadosBancarios),
                     ChavePix = usuario.ChavePix,
-                    ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
+                    ChaveCarteiraCripto = usuario.ChaveCarteiraCripto,
+                    CadastroCompleto = usuario.CadastroCompleto
                 }
             };
 
