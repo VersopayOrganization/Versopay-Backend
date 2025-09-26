@@ -120,7 +120,8 @@ namespace VersopayBackend.Services
             Taxa = transferencia.Taxa,
             ValorFinal = transferencia.ValorFinal,
             DataCadastro = transferencia.DataCadastro,
-            DataAprovacao = transferencia.DataAprovacao
+            DataAprovacao = transferencia.DataAprovacao,
+            MetodoPagamento = transferencia.MetodoPagamento
         };
     }
 }
