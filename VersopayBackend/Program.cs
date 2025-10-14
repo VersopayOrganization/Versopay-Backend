@@ -3,39 +3,49 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Options;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
-using VersopayBackend.Repositories.Webhook;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
 using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
 using VersopayBackend.Services.Taxas;
-using VersopayBackend.Services.Webhook;
-
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
+// ------------------------------
+// Builder
+// ------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
+// ------------------------------
 // DB
+// ------------------------------
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
-    sql => sql.MigrationsAssembly("VersopayDatabase")));
+    opt.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql => sql.MigrationsAssembly("VersopayDatabase")));
 
-// JWT
+// ------------------------------
+// Options (appsettings / env)
+// ------------------------------
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
+builder.Services.Configure<TaxasOptions>(builder.Configuration.GetSection("Taxas"));
+
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
 
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
-builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
-
+// ------------------------------
+// AuthN / AuthZ (JWT)
+// ------------------------------
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -49,11 +59,28 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
+            ClockSkew = TimeSpan.FromMinutes(1),
+            NameClaimType = JwtRegisteredClaimNames.Sub // usamos 'sub' como identificador
         };
+
+        // Receber as claims como vieram no token (sem remapeamento de MS -> wsfed)
+        JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
     });
 
-// CORS (dev)
+builder.Services.AddAuthorization();
+
+// ------------------------------
+// JSON
+// ------------------------------
+builder.Services.AddControllers().AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.Converters.Add(
+        new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
+
+// ------------------------------
+// CORS (somente DEV)
+// ------------------------------
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsDev", p =>
@@ -65,38 +92,51 @@ builder.Services.AddCors(options =>
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials() // << necessário para cookies cross-site
-    );
+        .AllowCredentials());
 });
 
-builder.Services.AddAuthorization();
+// ------------------------------
+// HttpClients (Vexy / Versell)
+// Lê baseUrl de configuração com fallback para os hosts padrão.
+// Env var suportado: Providers:Vexy:BaseUrl / Providers:Versell:BaseUrl
+// ------------------------------
+var vexyBase = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexypayments.com";
+var versellBase = builder.Configuration["Providers:Versell:BaseUrl"] ?? "https://api.versellpay.com";
 
-builder.Services.AddControllers();
+builder.Services.AddHttpClient("Vexy", c =>
+{
+    c.BaseAddress = new Uri(vexyBase);
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
 
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
-builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
-builder.Services.Configure<TaxasOptions>(builder.Configuration.GetSection("Taxas"));
+builder.Services.AddHttpClient("Versell", c =>
+{
+    c.BaseAddress = new Uri(versellBase);
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
 
-// DI (removi duplicata de IUsuarioRepository)
+// ------------------------------
+// DI – Repositórios / Serviços
+// ------------------------------
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+
 builder.Services.AddScoped<IDocumentoRepository, DocumentoRepository>();
 builder.Services.AddScoped<IDocumentosService, DocumentosService>();
+
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
+
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
+builder.Services.AddScoped<IPedidoReadRepository, PedidoRepository>();
 builder.Services.AddScoped<IPedidosService, PedidosService>();
+
 builder.Services.AddScoped<INovaSenhaRepository, NovaSenhaRepository>();
 builder.Services.AddScoped<IUsuarioSenhaHistoricoRepository, UsuarioSenhaHistoricoRepository>();
 
 builder.Services.AddScoped<IKycKybRepository, KycKybRepository>();
 builder.Services.AddScoped<IKycKybService, KycKybService>();
-
-builder.Services.AddSingleton<IClock, SystemClock>();
-builder.Services.AddSingleton<ITokenService, TokenService>();
-builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
-builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
-builder.Services.AddSingleton<ITaxasProvider, TaxasConfigProvider>();
 
 builder.Services.AddScoped<IBypassTokenRepository, BypassTokenRepository>();
 builder.Services.AddScoped<IDeviceTrustChallengeRepository, DeviceTrustChallengeRepository>();
@@ -118,13 +158,30 @@ builder.Services.AddScoped<IExtratoRepository, ExtratoRepository>();
 builder.Services.AddScoped<IMovimentacaoRepository, MovimentacaoRepository>();
 builder.Services.AddScoped<IExtratoService, ExtratoService>();
 
-builder.Services.AddScoped<IExtratoRepository, ExtratoRepository>();
-builder.Services.AddScoped<IPedidoReadRepository, PedidoRepository>();
+builder.Services.AddScoped<IProviderCredentialRepository, ProviderCredentialRepository>();
 
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioAutenticadoService, UsuarioAutenticadoService>();
 
+builder.Services.AddScoped<IVexyClient, VexyClient>();
+builder.Services.AddScoped<IVexyService, VexyService>();
 
+
+// Serviços utilitários (singleton)
+builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
+builder.Services.AddSingleton<ITaxasProvider, TaxasConfigProvider>();
+
+// Clients de provedores
+builder.Services.AddScoped<IVexyClient, VexyClient>();
+// Quando tiver o client do Versell, registre aqui também:
+// builder.Services.AddScoped<IVersellClient, VersellClient>();
+
+// ------------------------------
 // Swagger + Bearer
+// ------------------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -148,6 +205,9 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// ------------------------------
+// App
+// ------------------------------
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -159,16 +219,25 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// (1) Roteamento explícito ajuda a garantir ordem do middleware com endpoint routing
 app.UseRouting();
 
-// (2) CORS ANTES de Auth/Authorization
-app.UseCors("CorsDev");
+// CORS antes de Auth/Authorization (apenas em DEV)
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("CorsDev");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// (3) Anexe a policy aos endpoints (garante CORS nos pré-flights/404 etc.)
-app.MapControllers().RequireCors("CorsDev");
+// Garante CORS aplicado nos endpoints mapeados (em DEV)
+if (app.Environment.IsDevelopment())
+{
+    app.MapControllers().RequireCors("CorsDev");
+}
+else
+{
+    app.MapControllers(); // em PROD, política de CORS deve ser configurada conforme necessidade
+}
 
 app.Run();
