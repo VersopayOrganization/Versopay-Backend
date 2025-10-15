@@ -2,7 +2,6 @@
 {
     public sealed class VexyDepositRespDto
     {
-        // Ajuste ao retorno real da Vexy (ex: qr_code, txid, etc.)
         public string transaction_id { get; set; } = default!;
         public string status { get; set; } = default!;
         public decimal amount { get; set; }

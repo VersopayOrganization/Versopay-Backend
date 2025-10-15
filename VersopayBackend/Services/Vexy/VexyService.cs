@@ -1,5 +1,7 @@
-﻿using System.Text.Json;
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayLibrary.Enums;
@@ -14,6 +16,12 @@ namespace VersopayBackend.Services
         ILogger<VexyService> logger
     ) : IVexyService
     {
+        static readonly JsonSerializerOptions _jsonOpts = new()
+        {
+            // iremos honrar os [JsonPropertyName], então pode deixar null
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
         public async Task<(bool ok, string? error)> ValidateCredentialsAsync(int ownerUserId, CancellationToken ct)
         {
             try
@@ -31,17 +39,27 @@ namespace VersopayBackend.Services
 
         public async Task<VexyDepositRespDto> CreateDepositAsync(int ownerUserId, VexyDepositReqDto req, CancellationToken ct)
         {
-            var resp = await client.PostAsync(ownerUserId, "/api/payments/deposit", req, ct);
-            var body = await resp.Content.ReadAsStringAsync(ct);
+            // normalizações
+            req.payer.document = new string((req.payer.document ?? "").Where(char.IsDigit).ToArray());
+            if (string.IsNullOrWhiteSpace(req.payer.document_type))
+            {
+                req.payer.document_type = req.payer.document?.Length switch
+                {
+                    11 => "CPF",
+                    14 => "CNPJ",
+                    _ => null
+                };
+            }
 
-            if (!resp.IsSuccessStatusCode)
-                throw new InvalidOperationException(
-                    $"Vexy deposit failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {body}");
+            if (string.IsNullOrWhiteSpace(req.clientCallbackUrl) ||
+                req.clientCallbackUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("clientCallbackUrl inválido: use um endpoint HTTPS público.");
 
-            var data = System.Text.Json.JsonSerializer.Deserialize<VexyDepositRespDto>(
-                body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // chama a Vexy
+            var data = await client.PostAsync<VexyDepositReqDto, VexyDepositRespDto>(
+                ownerUserId, "/api/payments/deposit", req, ct);
 
-            return data ?? throw new InvalidOperationException("Resposta vazia/inesperada da Vexy (deposit).");
+            return data;
         }
 
         public async Task<VexyWithdrawRespDto> RequestWithdrawalAsync(int ownerUserId, VexyWithdrawReqDto req, CancellationToken ct)

@@ -1,4 +1,8 @@
-﻿namespace VersopayBackend.Repositories
+﻿using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace VersopayBackend.Repositories
 {
     // Repositories/IVexyClient.cs
     public interface IVexyClient
@@ -8,5 +12,4 @@
         Task<T> GetJsonAsync<T>(int ownerUserId, string path, CancellationToken ct);
         Task<TResp> PostAsync<TReq, TResp>(int ownerUserId, string path, TReq body, CancellationToken ct);
     }
-
 }

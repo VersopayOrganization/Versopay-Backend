@@ -60,10 +60,9 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1),
-            NameClaimType = JwtRegisteredClaimNames.Sub // usamos 'sub' como identificador
+            NameClaimType = JwtRegisteredClaimNames.Sub
         };
 
-        // Receber as claims como vieram no token (sem remapeamento de MS -> wsfed)
         JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
     });
 
@@ -96,23 +95,13 @@ builder.Services.AddCors(options =>
 });
 
 // ------------------------------
-// HttpClients (Vexy / Versell)
-// Lê baseUrl de configuração com fallback para os hosts padrão.
-// Env var suportado: Providers:Vexy:BaseUrl / Providers:Versell:BaseUrl
+// HttpClient Vexy (Typed Client)
 // ------------------------------
-var vexyBase = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexypayments.com";
-var versellBase = builder.Configuration["Providers:Versell:BaseUrl"] ?? "https://api.versellpay.com";
-
-builder.Services.AddHttpClient("Vexy", c =>
+builder.Services.AddHttpClient("Vexy", http =>
 {
-    c.BaseAddress = new Uri(vexyBase);
-    c.Timeout = TimeSpan.FromSeconds(30);
-});
-
-builder.Services.AddHttpClient("Versell", c =>
-{
-    c.BaseAddress = new Uri(versellBase);
-    c.Timeout = TimeSpan.FromSeconds(30);
+    var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexypayments.com";
+    http.BaseAddress = new Uri(baseUrl);
+    http.Timeout = TimeSpan.FromSeconds(60);
 });
 
 // ------------------------------
@@ -163,9 +152,8 @@ builder.Services.AddScoped<IProviderCredentialRepository, ProviderCredentialRepo
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioAutenticadoService, UsuarioAutenticadoService>();
 
-builder.Services.AddScoped<IVexyClient, VexyClient>();
 builder.Services.AddScoped<IVexyService, VexyService>();
-
+builder.Services.AddScoped<IVexyClient, VexyClient>();
 
 // Serviços utilitários (singleton)
 builder.Services.AddSingleton<IClock, SystemClock>();
@@ -173,11 +161,6 @@ builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<IEmailEnvioService, EmailEnvioService>();
 builder.Services.AddSingleton<ITaxasProvider, TaxasConfigProvider>();
-
-// Clients de provedores
-builder.Services.AddScoped<IVexyClient, VexyClient>();
-// Quando tiver o client do Versell, registre aqui também:
-// builder.Services.AddScoped<IVersellClient, VersellClient>();
 
 // ------------------------------
 // Swagger + Bearer
@@ -221,7 +204,6 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-// CORS antes de Auth/Authorization (apenas em DEV)
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("CorsDev");
@@ -230,14 +212,13 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Garante CORS aplicado nos endpoints mapeados (em DEV)
 if (app.Environment.IsDevelopment())
 {
     app.MapControllers().RequireCors("CorsDev");
 }
 else
 {
-    app.MapControllers(); // em PROD, política de CORS deve ser configurada conforme necessidade
+    app.MapControllers();
 }
 
 app.Run();
