@@ -11,8 +11,10 @@ namespace VersopayBackend.Dtos
         public string? Instagram { get; set; }
         public string? Telefone { get; set; }
         public DateTime CreatedAt { get; set; }
-        public string? CpfCnpj { get; set; }
-        public string? CpfCnpjFormatado { get; set; }
+        public string? Cpf { get; set; }
+        public string? Cnpj { get; set; }
+        public string? CpfFormatado { get; set; }
+        public string? CnpjFormatado { get; set; }
         public bool IsAdmin { get; set; }
         public string? NomeFantasia { get; set; }
         public string? RazaoSocial { get; set; }

@@ -17,9 +17,13 @@ namespace VersopayLibrary.Models
 
         public TipoCadastro? TipoCadastro { get; set; }
 
-        // CPF (11) ou CNPJ (14) — armazene apenas dígitos
+        // CPF (11) — armazene apenas dígitos
+        [MaxLength(11)]
+        public string? Cpf { get; set; }
+
+        // CNPJ (14) — armazene apenas dígitos
         [MaxLength(14)]
-        public string? CpfCnpj { get; set; }
+        public string? Cnpj { get; set; }
 
         [MaxLength(80)]
         public string? Instagram { get; set; }

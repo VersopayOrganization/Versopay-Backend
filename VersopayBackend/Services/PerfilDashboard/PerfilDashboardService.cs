@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using VersopayBackend.Common;
 using VersopayBackend.Dtos;
 using VersopayBackend.Options;
 using VersopayBackend.Repositories;
@@ -19,10 +20,10 @@ namespace VersopayBackend.Services.PerfilDashboard
             var usuario = await usuarios.GetByIdNoTrackingAsync(usuarioId, cancellationToken)
                     ?? throw new ArgumentException("Usuário inválido.");
 
-            // vendas (lifetime)
             var (qtdAprovados, totalAprovados) = await pedidos.GetVendasAprovadasAsync(usuarioId, null, null, cancellationToken);
 
-            var (cpf, cnpj) = CpfCnpjUtils.SplitCpfCnpj(usuario.CpfCnpj);
+            var cpf = DocumentoFormatter.Mask(usuario.Cpf);
+            var cnpj = DocumentoFormatter.Mask(usuario.Cnpj);
 
             return new PerfilResponseDto
             {
@@ -31,8 +32,10 @@ namespace VersopayBackend.Services.PerfilDashboard
                 Email = usuario.Email,
                 Telefone = usuario.Telefone,
                 Instagram = usuario.Instagram,
+
                 Cpf = cpf,
                 Cnpj = cnpj,
+
                 QtdeVendasAprovadas = qtdAprovados,
                 TotalVendidoAprovado = totalAprovados,
                 Taxas = new TaxasDto
@@ -43,16 +46,17 @@ namespace VersopayBackend.Services.PerfilDashboard
                     BoletoPorcentagem = taxasOptions.Value.BoletoPorcentagem
                 },
 
-                // se ainda não tem esses campos no Usuario, manter null:
-                NomeFantasia = null, // TODO quando existir
-                RazaoSocial = null,  // TODO quando existir
-                SiteOuRede = null    // TODO quando existir
+                NomeFantasia = null,
+                RazaoSocial = null,
+                SiteOuRede = null
             };
         }
 
+        // ASSINATURA EXATA: int, DashboardQueryDto, CancellationToken
         public async Task<DashboardResponseDto> GetDashboardAsync(int usuarioId, DashboardQueryDto dashboardQueryDto, CancellationToken cancellationToken)
         {
-            var (qtdAprovados, totalAprovados) = await pedidos.GetVendasAprovadasAsync(usuarioId, dashboardQueryDto.DataInicio, dashboardQueryDto.DataFim, cancellationToken);
+            var (qtdAprovados, totalAprovados) = await pedidos.GetVendasAprovadasAsync(
+                usuarioId, dashboardQueryDto.DataInicio, dashboardQueryDto.DataFim, cancellationToken);
 
             var extrato = await extratos.GetByClienteIdNoTrackingAsync(usuarioId, cancellationToken);
             var saldoDisponivel = extrato?.SaldoDisponivel ?? 0m;

@@ -10,21 +10,39 @@ namespace VersopayBackend.Repositories
             => appDbContext.Faturamentos.AddAsync(faturamento, cancellationToken).AsTask();
 
         public Task<Faturamento?> GetByIdAsync(int id, CancellationToken cancellationToken)
-            => appDbContext.Faturamentos.AsNoTracking().FirstOrDefaultAsync(faturamento => faturamento.Id == id, cancellationToken);
+            => appDbContext.Faturamentos.AsNoTracking()
+                 .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
 
-        public async Task<List<Faturamento>> ListByCpfCnpjAsync(string cpfCnpj, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken)
+        public async Task<List<Faturamento>> ListByCpfCnpjAsync(string cpfCnpjDigits, DateTime? dataInicio, DateTime? dataFim, CancellationToken ct)
         {
-            var faturamentos = appDbContext.Faturamentos.AsNoTracking().Where(faturamento => faturamento.CpfCnpj == cpfCnpj);
-            if (dataInicio.HasValue) faturamentos = faturamentos.Where(faturamento => faturamento.DataFim >= dataInicio.Value);
-            if (dataFim.HasValue) faturamentos = faturamentos.Where(faturamento => faturamento.DataInicio <= dataFim.Value);
-            return await faturamentos.OrderByDescending(faturamento => faturamento.DataInicio).ToListAsync(cancellationToken);
+            var q = appDbContext.Faturamentos.AsNoTracking();
+
+            if (cpfCnpjDigits?.Length == 11)
+                q = q.Where(f => f.Cpf == cpfCnpjDigits);
+            else if (cpfCnpjDigits?.Length == 14)
+                q = q.Where(f => f.Cnpj == cpfCnpjDigits);
+            else
+                q = q.Where(f => false); // inválido => retorna vazio
+
+            if (dataInicio.HasValue) q = q.Where(f => f.DataFim >= dataInicio.Value);
+            if (dataFim.HasValue) q = q.Where(f => f.DataInicio <= dataFim.Value);
+
+            return await q.OrderByDescending(f => f.DataInicio).ToListAsync(ct);
         }
 
-        public Task<Faturamento?> GetLatestByCpfCnpjAsync(string cpfCnpj, CancellationToken cancellationToken)
-            => appDbContext.Faturamentos.AsNoTracking()
-                  .Where(faturamento => faturamento.CpfCnpj == cpfCnpj)
-                  .OrderByDescending(faturamento => faturamento.AtualizadoEmUtc)
-                  .FirstOrDefaultAsync(cancellationToken);
+        public Task<Faturamento?> GetLatestByCpfCnpjAsync(string cpfCnpjDigits, CancellationToken ct)
+        {
+            var q = appDbContext.Faturamentos.AsNoTracking();
+
+            if (cpfCnpjDigits?.Length == 11)
+                q = q.Where(f => f.Cpf == cpfCnpjDigits);
+            else if (cpfCnpjDigits?.Length == 14)
+                q = q.Where(f => f.Cnpj == cpfCnpjDigits);
+            else
+                q = q.Where(f => false);
+
+            return q.OrderByDescending(f => f.AtualizadoEmUtc).FirstOrDefaultAsync(ct);
+        }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);
     }

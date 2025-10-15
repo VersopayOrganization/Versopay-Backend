@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,7 +17,10 @@ namespace VersopayLibrary.Models
         public Usuario Usuario { get; set; } = default!;
         public StatusKycKyb Status { get; set; }
         // Snapshots para histórico
-        public string CpfCnpj { get; set; } = default!;       // nvarchar(14) (apenas dígitos)
+        [MaxLength(11)] 
+        public string? Cpf { get; set; }   // só dígitos
+        [MaxLength(14)] 
+        public string? Cnpj { get; set; }  // só dígitos
         public string Nome { get; set; } = default!;          // nvarchar(120)
         public string? NumeroDocumento { get; set; }          // ex.: RG/CNH (nvarchar(64))
         // Preenchida somente quando Status = Aprovado

@@ -1,13 +1,13 @@
 ﻿using System.Linq;
+using VersopayBackend.Common;
 using VersopayBackend.Dtos;
 using VersopayBackend.Repositories;
 using VersopayBackend.Utils;
 using VersopayLibrary.Enums;
-using KycKybModel = VersopayLibrary.Models.KycKyb; // alias claro p/ a ENTIDADE
+using KycKybModel = VersopayLibrary.Models.KycKyb;
 
 namespace VersopayBackend.Services.KycKybFeature
 {
-    // implementa a interface usando o nome qualificado do namespace da interface
     public sealed class KycKybService : Services.KycKyb.IKycKybService
     {
         private readonly IKycKybRepository _kycRepo;
@@ -21,15 +21,17 @@ namespace VersopayBackend.Services.KycKybFeature
 
         public async Task<KycKybResponseDto> CriarAsync(KycKybCreateDto kycKybCreateDto, CancellationToken cancellationToken)
         {
-            var usuarioRepo = await _usuarioRepo.GetByIdNoTrackingAsync(kycKybCreateDto.UsuarioId, cancellationToken)
-                     ?? throw new ArgumentException("UsuarioId inválido.");
+            var user = await _usuarioRepo.GetByIdNoTrackingAsync(kycKybCreateDto.UsuarioId, cancellationToken)
+                       ?? throw new ArgumentException("UsuarioId inválido.");
 
+            // snapshot separado
             var item = new KycKybModel
             {
-                UsuarioId = usuarioRepo.Id,
+                UsuarioId = user.Id,
                 Status = kycKybCreateDto.Status,
-                CpfCnpj = usuarioRepo.CpfCnpj, // snapshot
-                Nome = usuarioRepo.Nome,       // snapshot
+                Cpf = user.Cpf,    // pode ser null
+                Cnpj = user.Cnpj,  // pode ser null
+                Nome = user.Nome,
                 NumeroDocumento = kycKybCreateDto.NumeroDocumento,
                 DataAprovacao = kycKybCreateDto.Status == StatusKycKyb.Aprovado ? DateTime.UtcNow : null
             };
@@ -40,6 +42,7 @@ namespace VersopayBackend.Services.KycKybFeature
             return Map(item);
         }
 
+
         public async Task<IEnumerable<KycKybResponseDto>> PegarTodosAsync(int? usuarioId, string? status, int page, int pageSize, CancellationToken cancellationToken)
         {
             StatusKycKyb? statusKycKyb = null;
@@ -47,13 +50,13 @@ namespace VersopayBackend.Services.KycKybFeature
                 statusKycKyb = parsed;
 
             var list = await _kycRepo.PegarTodosAsync(usuarioId, statusKycKyb, page, pageSize, cancellationToken);
-            return list.Select(MapearComMascara);
+            return list.Select(MapComMascara);
         }
 
         public async Task<KycKybResponseDto?> PegarPeloIdAsync(int id, CancellationToken cancellationToken)
         {
             var item = await _kycRepo.PegarPeloIdNoTrackingAsync(id, cancellationToken);
-            return item is null ? null : MapearComMascara(item);
+            return item is null ? null : MapComMascara(item);
         }
 
         public async Task<bool> AtualizarStatusAsync(int id, KycKybStatusUpdateDto kycKybStatusUpdateDto, CancellationToken cancellationToken)
@@ -76,22 +79,28 @@ namespace VersopayBackend.Services.KycKybFeature
         public Task<bool> ReprovarAsync(int id, CancellationToken cancellationToken) =>
             AtualizarStatusAsync(id, new KycKybStatusUpdateDto { Status = StatusKycKyb.Reprovado }, cancellationToken);
 
-        private static KycKybResponseDto Map(KycKybModel kycKybModel) => new()
+        private static KycKybResponseDto Map(KycKybModel e) => new()
         {
-            Id = kycKybModel.Id,
-            UsuarioId = kycKybModel.UsuarioId,
-            Status = kycKybModel.Status,
-            CpfCnpj = kycKybModel.CpfCnpj,
-            Nome = kycKybModel.Nome,
-            NumeroDocumento = kycKybModel.NumeroDocumento,
-            DataAprovacao = kycKybModel.DataAprovacao
+            Id = e.Id,
+            UsuarioId = e.UsuarioId,
+            Status = e.Status,
+            Nome = e.Nome,
+            NumeroDocumento = e.NumeroDocumento,
+            DataAprovacao = e.DataAprovacao,
+
+            // DTO de resposta com campos separados
+            Cpf = e.Cpf,
+            Cnpj = e.Cnpj,
+            CpfFormatado = DocumentoFormatter.Mask(e.Cpf),
+            CnpjFormatado = DocumentoFormatter.Mask(e.Cnpj)
         };
 
-        private static KycKybResponseDto MapearComMascara(KycKybModel kycKybModel)
+        private static KycKybResponseDto MapComMascara(KycKybModel m)
         {
-            var kycKybResponseDto = Map(kycKybModel);
-            kycKybResponseDto.CpfCnpjFormatado = CpfCnpjUtils.Mascara(kycKybResponseDto.CpfCnpj);
-            return kycKybResponseDto;
+            var dto = Map(m);
+            dto.CpfFormatado = DocumentoFormatter.Mask(dto.Cpf);
+            dto.CnpjFormatado = DocumentoFormatter.Mask(dto.Cnpj);
+            return dto;
         }
     }
 }

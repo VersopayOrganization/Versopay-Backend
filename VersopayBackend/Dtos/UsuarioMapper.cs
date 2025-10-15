@@ -15,8 +15,10 @@ namespace VersopayBackend.Dtos
             Telefone = u.Telefone,
             CreatedAt = u.DataCriacao,
 
-            CpfCnpj = u.CpfCnpj,
-            CpfCnpjFormatado = DocumentoFormatter.Mask(u.CpfCnpj),
+            Cpf = u.Cpf,
+            Cnpj = u.Cnpj,
+            CpfFormatado = DocumentoFormatter.Mask(u.Cpf),
+            CnpjFormatado = DocumentoFormatter.Mask(u.Cnpj),
 
             CpfCnpjDadosBancarios = u.CpfCnpjDadosBancarios,
             CpfCnpjDadosBancariosFormatado = DocumentoFormatter.Mask(u.CpfCnpjDadosBancarios),
