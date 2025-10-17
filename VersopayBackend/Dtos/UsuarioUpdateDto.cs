@@ -14,7 +14,9 @@ namespace VersopayBackend.Dtos
         [Required] public TipoCadastro TipoCadastro { get; set; }
 
         // use este campo para CNPJ **ou** CPF (dependendo de TipoCadastro)
-        [Required] public string CpfCnpj { get; set; } = default!;
+        [Required] public string Cpf { get; set; } = default!;
+
+        [Required] public string Cnpj { get; set; } = default!;
 
         [MaxLength(80)] public string? Instagram { get; set; }
         [MaxLength(20)] public string? Telefone { get; set; }
@@ -41,12 +43,23 @@ namespace VersopayBackend.Dtos
 
         public IEnumerable<ValidationResult> Validate(ValidationContext _)
         {
-            // valida o documento principal conforme TipoCadastro
-            var digits = new string((CpfCnpj ?? "").Where(char.IsDigit).ToArray());
-            if (digits.Length < 13 && digits.Length != 11)
-                yield return new ValidationResult("CPF deve ter 11 dígitos.", new[] { nameof(CpfCnpj) });
-            if (digits.Length > 13 && digits.Length != 14)
-                yield return new ValidationResult("CNPJ deve ter 14 dígitos.", new[] { nameof(CpfCnpj) });
+            var cpf = new string((Cpf ?? "").Where(char.IsDigit).ToArray());
+            var cnpj = new string((Cnpj ?? "").Where(char.IsDigit).ToArray());
+
+            if (TipoCadastro == TipoCadastro.PF)
+            {
+                if (cpf.Length != 11) 
+                    yield return new("CPF deve ter 11 dígitos.", new[] { nameof(Cpf) });
+                if (!string.IsNullOrEmpty(Cnpj)) 
+                    yield return new("Para PF, CNPJ deve ser nulo.", new[] { nameof(Cnpj) });
+            }
+            if (TipoCadastro == TipoCadastro.PJ)
+            {
+                if (cnpj.Length != 14) 
+                    yield return new("CNPJ deve ter 14 dígitos.", new[] { nameof(Cnpj) });
+                if (!string.IsNullOrEmpty(Cpf)) 
+                    yield return new("Para PJ, CPF deve ser nulo.", new[] { nameof(Cpf) });
+            }
 
             // valida bancário apenas se informado
             var bank = new string((CpfCnpjDadosBancarios ?? "").Where(char.IsDigit).ToArray());

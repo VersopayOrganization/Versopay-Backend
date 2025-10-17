@@ -7,7 +7,8 @@ namespace VersopayBackend.Dtos
         public static FaturamentoDto ToDto(this Faturamento faturamento) => new()
         {
             Id = faturamento.Id,
-            CpfCnpj = faturamento.CpfCnpj,
+            Cpf = faturamento.Cpf,
+            Cnpj = faturamento.Cnpj,
             DataInicio = faturamento.DataInicio,
             DataFim = faturamento.DataFim,
             VendasTotais = faturamento.VendasTotais,

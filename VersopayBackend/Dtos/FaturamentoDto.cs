@@ -3,7 +3,8 @@
     public sealed class FaturamentoDto
     {
         public int Id { get; set; }
-        public string CpfCnpj { get; set; } = default!;
+        public string Cpf { get; set; } = default!;
+        public string Cnpj { get; set; } = default!;
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
 

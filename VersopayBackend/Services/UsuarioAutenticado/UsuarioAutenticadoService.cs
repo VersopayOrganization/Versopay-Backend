@@ -4,7 +4,7 @@ using VersopayBackend.Repositories;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Taxas;
 using VersopayBackend.Utils;
-using VersopayLibrary.Enums;
+using VersopayLibrary.Enums; // <- enum correto
 
 namespace VersopayBackend.Services
 {
@@ -20,11 +20,11 @@ namespace VersopayBackend.Services
             var u = await usuarios.GetByIdNoTrackingAsync(usuarioId, ct)
                     ?? throw new InvalidOperationException("Usuário não encontrado.");
 
-            // vendas lifetime (aprovadas)
             var (qtd, total) = await pedidos.GetVendasAprovadasAsync(usuarioId, null, null, ct);
 
-            string? cpf = u.TipoCadastro == VersopayLibrary.Models.TipoCadastro.PF ? u.CpfCnpj : null;
-            string? cnpj = u.TipoCadastro == VersopayLibrary.Models.TipoCadastro.PJ ? u.CpfCnpj : null;
+            // agora vem direto de Usuario.Cpf / Usuario.Cnpj
+            var cpfMasked = string.IsNullOrWhiteSpace(u.Cpf) ? null : DocumentoFormatter.Mask(u.Cpf);
+            var cnpjMasked = string.IsNullOrWhiteSpace(u.Cnpj) ? null : DocumentoFormatter.Mask(u.Cnpj);
 
             return new PerfilResumoDto
             {
@@ -32,12 +32,13 @@ namespace VersopayBackend.Services
                 Email = u.Email,
                 Telefone = u.Telefone,
                 Instagram = u.Instagram,
-                // Se futuramente você tiver em outra entidade, preencha:
+
                 NomeFantasia = null,
                 RazaoSocial = null,
                 SiteOuRedeSocial = null,
-                Cpf = string.IsNullOrWhiteSpace(cpf) ? null : DocumentoFormatter.Mask(cpf),
-                Cnpj = string.IsNullOrWhiteSpace(cnpj) ? null : DocumentoFormatter.Mask(cnpj),
+
+                Cpf = cpfMasked,
+                Cnpj = cnpjMasked,
                 VendasQtd = qtd,
                 VendasTotal = total,
                 Taxas = fees.Get()
@@ -46,20 +47,16 @@ namespace VersopayBackend.Services
 
         public async Task<DashboardResumoDto> GetDashboardAsync(int usuarioId, DateTime deUtc, DateTime ateUtc, CancellationToken ct)
         {
-            // faturamento no período (aprovados)
             var (_, fatPeriodo) = await pedidos.GetVendasAprovadasAsync(usuarioId, deUtc, ateUtc, ct);
 
-            // extrato
             var extrato = await extratos.GetByClienteIdNoTrackingAsync(usuarioId, ct);
 
-            // métricas por método
-            var cartao = await pedidos.GetStatsPorMetodoAsync(usuarioId, MetodoPagamento.Cartao, deUtc, ateUtc, ct);
-            var pix = await pedidos.GetStatsPorMetodoAsync(usuarioId, MetodoPagamento.Pix, deUtc, ateUtc, ct);
-            var boleto = await pedidos.GetStatsPorMetodoAsync(usuarioId, MetodoPagamento.Boleto, deUtc, ateUtc, ct);
+            var cartao = await pedidos.GetStatsPorMetodoAsync(usuarioId, VersopayLibrary.Enums.MetodoPagamento.Cartao, deUtc, ateUtc, ct);
+            var pix = await pedidos.GetStatsPorMetodoAsync(usuarioId, VersopayLibrary.Enums.MetodoPagamento.Pix, deUtc, ateUtc, ct);
+            var boleto = await pedidos.GetStatsPorMetodoAsync(usuarioId, VersopayLibrary.Enums.MetodoPagamento.Boleto, deUtc, ateUtc, ct);
 
             var totalPedidosPeriodo = cartao.QtdTotal + pix.QtdTotal + boleto.QtdTotal;
 
-            // chargeback / estorno
             var (qtdCbk, totalCbk) = await pedidos.GetChargebackAsync(usuarioId, deUtc, ateUtc, ct);
             var cbkPercent = totalPedidosPeriodo == 0 ? 0m : Math.Round((decimal)qtdCbk / totalPedidosPeriodo * 100m, 1);
 

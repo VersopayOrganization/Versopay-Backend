@@ -6,8 +6,10 @@ namespace VersopayLibrary.Models
     {
         public int Id { get; set; }
 
-        [Required, MaxLength(14)]
-        public string CpfCnpj { get; set; } = default!; // apenas dígitos (11 ou 14)
+        [MaxLength(11)] 
+        public string? Cpf { get; set; }   // só dígitos
+        [MaxLength(14)] 
+        public string? Cnpj { get; set; }  // só dígitos
 
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }

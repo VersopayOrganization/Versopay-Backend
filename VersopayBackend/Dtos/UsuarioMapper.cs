@@ -7,9 +7,6 @@ namespace VersopayBackend.Dtos
     {
         public static UsuarioResponseDto ToResponseDto(this Usuario u) => new()
         {
- 
-
-
             Id = u.Id,
             Nome = u.Nome,
             Email = u.Email,
@@ -18,8 +15,10 @@ namespace VersopayBackend.Dtos
             Telefone = u.Telefone,
             CreatedAt = u.DataCriacao,
 
-            CpfCnpj = u.CpfCnpj,
-            CpfCnpjFormatado = DocumentoFormatter.Mask(u.CpfCnpj),
+            Cpf = u.Cpf,
+            Cnpj = u.Cnpj,
+            CpfFormatado = DocumentoFormatter.Mask(u.Cpf),
+            CnpjFormatado = DocumentoFormatter.Mask(u.Cnpj),
 
             CpfCnpjDadosBancarios = u.CpfCnpjDadosBancarios,
             CpfCnpjDadosBancariosFormatado = DocumentoFormatter.Mask(u.CpfCnpjDadosBancarios),
@@ -39,7 +38,8 @@ namespace VersopayBackend.Dtos
             EnderecoUF = u.EnderecoUF,
             NomeCompletoBanco = u.NomeCompletoBanco,
             ChavePix = u.ChavePix,
-            ChaveCarteiraCripto = u.ChaveCarteiraCripto
+            ChaveCarteiraCripto = u.ChaveCarteiraCripto,
+            CadastroCompleto = u.CadastroCompleto
         };
     }
 }

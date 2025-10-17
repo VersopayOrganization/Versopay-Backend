@@ -1,7 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using VersopayLibrary.Models;
-using Tipo = VersopayLibrary.Models.TipoCadastro; // << alias p/ o TIPO, evita colisão
-
+using Tipo = VersopayLibrary.Models.TipoCadastro;
 
 namespace VersopayBackend.Dtos
 {
@@ -12,8 +10,12 @@ namespace VersopayBackend.Dtos
         [Required]
         public Tipo TipoCadastro { get; set; }
 
-        [Required, MaxLength(20)]
-        public string? CpfCnpj { get; set; }
+        // IMPORTANTE: não marque ambos como [Required]; a validação condicional cuida disso.
+        [MaxLength(11)]
+        public string? Cpf { get; set; }
+
+        [MaxLength(14)]
+        public string? Cnpj { get; set; }
 
         [MaxLength(80)]
         public string? Instagram { get; set; }
@@ -23,11 +25,18 @@ namespace VersopayBackend.Dtos
 
         public IEnumerable<ValidationResult> Validate(ValidationContext _)
         {
-            var digits = new string((CpfCnpj ?? "").Where(char.IsDigit).ToArray());
-            if (TipoCadastro == Tipo.PF && digits.Length != 11)
-                yield return new("CPF deve ter 11 dígitos.", new[] { nameof(CpfCnpj) });
-            if (TipoCadastro == Tipo.PJ && digits.Length != 14)
-                yield return new("CNPJ deve ter 14 dígitos.", new[] { nameof(CpfCnpj) });
+            if (TipoCadastro == Tipo.PF)
+            {
+                var cpfDigits = new string((Cpf ?? "").Where(char.IsDigit).ToArray());
+                if (cpfDigits.Length != 11)
+                    yield return new ValidationResult("CPF deve ter 11 dígitos.", new[] { nameof(Cpf) });
+            }
+            else if (TipoCadastro == Tipo.PJ)
+            {
+                var cnpjDigits = new string((Cnpj ?? "").Where(char.IsDigit).ToArray());
+                if (cnpjDigits.Length != 14)
+                    yield return new ValidationResult("CNPJ deve ter 14 dígitos.", new[] { nameof(Cnpj) });
+            }
         }
     }
 }

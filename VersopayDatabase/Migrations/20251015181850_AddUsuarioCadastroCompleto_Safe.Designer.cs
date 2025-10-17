@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VersopayDatabase.Data;
 
@@ -11,9 +12,11 @@ using VersopayDatabase.Data;
 namespace VersopayDatabase.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251015181850_AddUsuarioCadastroCompleto_Safe")]
+    partial class AddUsuarioCadastroCompleto_Safe
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,51 +24,6 @@ namespace VersopayDatabase.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("ProviderCredential", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AccessToken")
-                        .HasMaxLength(600)
-                        .HasColumnType("nvarchar(600)");
-
-                    b.Property<DateTime?>("AccessTokenExpiresUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("AtualizadoEmUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ClientId")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("ClientSecret")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<DateTime>("CriadoEmUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("OwnerUserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Provider")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerUserId", "Provider")
-                        .IsUnique();
-
-                    b.ToTable("ProviderCredentials");
-                });
 
             modelBuilder.Entity("VersopayLibrary.Models.Antecipacao", b =>
                 {
@@ -929,9 +887,6 @@ namespace VersopayDatabase.Migrations
                     b.Property<int>("Eventos")
                         .HasColumnType("int");
 
-                    b.Property<int>("OwnerUserId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Secret")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -947,20 +902,7 @@ namespace VersopayDatabase.Migrations
 
                     b.HasIndex("Eventos");
 
-                    b.HasIndex("OwnerUserId", "Ativo");
-
                     b.ToTable("Webhooks");
-                });
-
-            modelBuilder.Entity("ProviderCredential", b =>
-                {
-                    b.HasOne("VersopayLibrary.Models.Usuario", "OwnerUser")
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("OwnerUser");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.Antecipacao", b =>
@@ -1093,17 +1035,6 @@ namespace VersopayDatabase.Migrations
                         .IsRequired();
 
                     b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("VersopayLibrary.Models.Webhook", b =>
-                {
-                    b.HasOne("VersopayLibrary.Models.Usuario", "OwnerUser")
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("OwnerUser");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.Usuario", b =>

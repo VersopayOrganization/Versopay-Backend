@@ -20,5 +20,6 @@ namespace VersopayBackend.Dtos
 
         public DateTime DataCadastro { get; set; }
         public DateTime? DataAprovacao { get; set; }
+        public MetodoPagamento  MetodoPagamento { get; set; }  
     }
 }

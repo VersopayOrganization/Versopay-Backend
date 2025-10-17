@@ -31,7 +31,10 @@ namespace VersopayBackend.Services.Auth
         ITaxasProvider fees
     ) : IAuthService
     {
-        // ===== Login: se tiver bypass válido => tokens; senão => challenge (2FA) por e-mail
+        // Mantém o bypass recém-criado para o controller setar o cookie
+        private (string Raw, DateTime Exp)? _pendingBypassCookie;
+
+        // ================== LOGIN ==================
         public async Task<LoginOutcomeDto> LoginOrChallengeAsync(
             LoginDto dto, string? ip, string? ua, string? bypassRaw, CancellationToken ct)
         {
@@ -64,7 +67,7 @@ namespace VersopayBackend.Services.Auth
                 }
             }
 
-            // 2) se não tem bypass válido => cria challenge e envia código por e-mail
+            // 2) se não tem bypass => challenge 2FA por e-mail
             if (!hasValidBypass)
             {
                 try
@@ -74,9 +77,8 @@ namespace VersopayBackend.Services.Auth
                 }
                 catch (InvalidOperationException ex)
                 {
-                    // Falha controlada no envio do e-mail (timeout/erro)
                     logger.LogWarning(ex, "Falha ao iniciar 2FA para usuário {UserId}", usuario.Id);
-                    throw; // controller mapeia para ProblemDetails
+                    throw;
                 }
             }
 
@@ -95,33 +97,7 @@ namespace VersopayBackend.Services.Auth
             }, ct);
             await usuarioRepository.SaveChangesAsync(ct);
 
-            var usuarioDto = new UsuarioResponseDto
-            {
-                Id = usuario.Id,
-                Nome = usuario.Nome,
-                Email = usuario.Email,
-                TipoCadastro = usuario.TipoCadastro,
-                Instagram = usuario.Instagram,
-                Telefone = usuario.Telefone,
-                CreatedAt = usuario.DataCriacao,
-                CpfCnpj = usuario.CpfCnpj,
-                CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
-                IsAdmin = usuario.IsAdmin,
-                NomeFantasia = usuario.NomeFantasia,
-                RazaoSocial = usuario.RazaoSocial,
-                Site = usuario.Site,
-                EnderecoCep = usuario.EnderecoCep,
-                EnderecoLogradouro = usuario.EnderecoLogradouro,
-                EnderecoNumero = usuario.EnderecoNumero,
-                EnderecoComplemento = usuario.EnderecoComplemento,
-                EnderecoBairro = usuario.EnderecoBairro,
-                EnderecoCidade = usuario.EnderecoCidade,
-                EnderecoUF = usuario.EnderecoUF,
-                NomeCompletoBanco = usuario.NomeCompletoBanco,
-                CpfCnpjDadosBancarios = DocumentoFormatter.Mask(usuario.CpfCnpjDadosBancarios),
-                ChavePix = usuario.ChavePix,
-                ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
-            };
+            var usuarioDto = BuildUsuarioResponse(usuario);
 
             var resp = new AuthResponseDto
             {
@@ -139,7 +115,7 @@ namespace VersopayBackend.Services.Auth
             };
         }
 
-        // ===== Refresh token
+        // ================== REFRESH ==================
         public async Task<AuthResult?> RefreshAsync(string rawRefresh, string? ip, string? userAgent, CancellationToken ct)
         {
             var hash = refreshTokenService.Hash(rawRefresh);
@@ -168,38 +144,13 @@ namespace VersopayBackend.Services.Auth
             {
                 AccessToken = access,
                 ExpiresAtUtc = accessExp,
-                Usuario = new UsuarioResponseDto
-                {
-                    Id = usuario.Id,
-                    Nome = usuario.Nome,
-                    Email = usuario.Email,
-                    TipoCadastro = usuario.TipoCadastro,
-                    Instagram = usuario.Instagram,
-                    Telefone = usuario.Telefone,
-                    CreatedAt = usuario.DataCriacao,
-                    CpfCnpj = DocumentoFormatter.Mask(usuario.CpfCnpj),
-                    IsAdmin = usuario.IsAdmin,
-                    NomeFantasia = usuario.NomeFantasia,
-                    RazaoSocial = usuario.RazaoSocial,
-                    Site = usuario.Site,
-                    EnderecoCep = usuario.EnderecoCep,
-                    EnderecoLogradouro = usuario.EnderecoLogradouro,
-                    EnderecoNumero = usuario.EnderecoNumero,
-                    EnderecoComplemento = usuario.EnderecoComplemento,
-                    EnderecoBairro = usuario.EnderecoBairro,
-                    EnderecoCidade = usuario.EnderecoCidade,
-                    EnderecoUF = usuario.EnderecoUF,
-                    NomeCompletoBanco = usuario.NomeCompletoBanco,
-                    CpfCnpjDadosBancarios = DocumentoFormatter.Mask(usuario.CpfCnpjDadosBancarios),
-                    ChavePix = usuario.ChavePix,
-                    ChaveCarteiraCripto = usuario.ChaveCarteiraCripto
-                }
+                Usuario = BuildUsuarioResponse(usuario)
             };
 
             return new AuthResult(resp, rawNew, expNew);
         }
 
-        // ===== Logout (revoga o refresh atual)
+        // ================== LOGOUT ==================
         public async Task LogoutAsync(string? rawRefresh, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(rawRefresh)) return;
@@ -213,7 +164,7 @@ namespace VersopayBackend.Services.Auth
             }
         }
 
-        // ===== Reset de senha (gera link)
+        // ============== RESET DE SENHA (solicitar) ==============
         public async Task ResetSenhaRequestAsync(
             SenhaEsquecidaRequest dto,
             string baseResetUrl,
@@ -250,7 +201,6 @@ namespace VersopayBackend.Services.Auth
 
             var link = $"{resetBase}?token={Uri.EscapeDataString(raw)}";
 
-            // (Opcional) também podemos evitar o cancel da request aqui.
             try
             {
                 using var emailCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -259,19 +209,16 @@ namespace VersopayBackend.Services.Auth
             catch (OperationCanceledException oce)
             {
                 logger.LogWarning(oce, "Timeout ao enviar e-mail de reset de senha para {UserId}", user.Id);
-                // silencioso para não revelar existência do e-mail
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Erro ao enviar e-mail de reset de senha para {UserId}", user.Id);
-                // idem
             }
         }
 
         public async Task<bool> ValidarTokenResetSenhaAsync(string rawToken, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(rawToken)) return false;
-
             var hash = refreshTokenService.Hash(rawToken);
             var hashUsuario = await novaSenhaRepository.GetByHashWithUserAsync(hash, ct);
             return hashUsuario is not null && hashUsuario.EstaAtivo(DateTimeBrazil.Now());
@@ -318,7 +265,7 @@ namespace VersopayBackend.Services.Auth
             return true;
         }
 
-        // ===== Dispositivo confiável (2FA por e-mail)
+        // ============== 2FA / DEVICE TRUST ==============
         public async Task<DeviceTrustChallengeDto> StartDeviceTrustAsync(
             int usuarioId, string? ip, string? ua, CancellationToken ct)
         {
@@ -343,7 +290,6 @@ namespace VersopayBackend.Services.Auth
             var user = await usuarioRepository.GetByIdAsync(usuarioId, ct)
                        ?? throw new InvalidOperationException("Usuário não encontrado.");
 
-            // ===== Envio do e-mail: token DEDICADO e fallback em DEV =====
             try
             {
                 using var emailCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -383,7 +329,7 @@ namespace VersopayBackend.Services.Auth
             ch.Used = true;
             await deviceTrustRepo.SaveChangesAsync(ct);
 
-            // cria o bypass token (60 dias, ajuste se quiser)
+            // cria o bypass token (60 dias)
             var (raw, hash, exp) = refreshTokenService.Create(TimeSpan.FromDays(60));
             await bypassRepo.AddAsync(new BypassToken
             {
@@ -396,11 +342,18 @@ namespace VersopayBackend.Services.Auth
 
             await bypassRepo.SaveChangesAsync(ct);
 
-            return (raw, exp); // o controller setará o cookie bptkn
+            return (raw, exp);
+        }
+
+        public (string Raw, DateTime Exp)? ConsumePendingBypassCookie()
+        {
+            var v = _pendingBypassCookie;
+            _pendingBypassCookie = null;
+            return v;
         }
 
         public async Task<AuthWithPanelsResult?> ConfirmDeviceTrustAndIssueTokensAsync(
-                    Guid challengeId, string code, string? ip, string? ua, CancellationToken ct)
+            Guid challengeId, string code, string? ip, string? ua, CancellationToken ct)
         {
             // 1) valida challenge + marca como usado
             var ch = await deviceTrustRepo.GetAsync(challengeId, ct);
@@ -442,38 +395,17 @@ namespace VersopayBackend.Services.Auth
             }, ct);
             await usuarioRepository.SaveChangesAsync(ct);
 
-            // 5) monta AuthResponseDto (o que você já tem)
-            var usuarioDto = new UsuarioResponseDto
-            {
-                Id = usuario.Id,
-                Nome = usuario.Nome,
-                Email = usuario.Email,
-                TipoCadastro = usuario.TipoCadastro,
-                Instagram = usuario.Instagram,
-                Telefone = usuario.Telefone,
-                CreatedAt = usuario.DataCriacao,
-                CpfCnpj = usuario.CpfCnpj,
-                CpfCnpjFormatado = DocumentoFormatter.Mask(usuario.CpfCnpj),
-                IsAdmin = usuario.IsAdmin
-            };
+            // 5) Auth
             var authDto = new AuthResponseDto
             {
                 AccessToken = access,
                 ExpiresAtUtc = accessExp,
-                Usuario = usuarioDto
+                Usuario = BuildUsuarioResponse(usuario)
             };
 
-            // 6) agrega PERFIL
+            // 6) PERFIL (resumo)
             var (qtdVendas, totalVendas) =
                 await pedidoReadRepo.GetVendasAprovadasAsync(usuario.Id, null, null, ct);
-
-            string? cpf = null, cnpj = null;
-            if (!string.IsNullOrWhiteSpace(usuario.CpfCnpj))
-            {
-                var docMask = DocumentoFormatter.Mask(usuario.CpfCnpj);
-                if (usuario.TipoCadastro == TipoCadastro.PF) cpf = docMask;
-                else if (usuario.TipoCadastro == TipoCadastro.PJ) cnpj = docMask;
-            }
 
             var perfil = new PerfilResumoDto
             {
@@ -481,20 +413,17 @@ namespace VersopayBackend.Services.Auth
                 Email = usuario.Email,
                 Telefone = usuario.Telefone,
                 Instagram = usuario.Instagram,
-                Cpf = cpf,
-                Cnpj = cnpj,
+                Cpf = DocumentoFormatter.Mask(usuario.Cpf),
+                Cnpj = DocumentoFormatter.Mask(usuario.Cnpj),
                 VendasQtd = qtdVendas,
-                VendasTotal = totalVendas,
-                // NomeFantasia / RazaoSocial / SiteOuRedeSocial ficam null até existir na sua model
+                VendasTotal = totalVendas
             };
 
-            // 7) agrega DASHBOARD
-            // saldos (se não existir extrato ainda, zera)
+            // 7) DASHBOARD
             var extrato = await extratoRepo.GetByClienteIdAsync(usuario.Id, ct);
             var saldoDisp = extrato?.SaldoDisponivel ?? 0m;
             var saldoPend = extrato?.SaldoPendente ?? 0m;
 
-            // stats por método
             static decimal Rate(int aprov, int total) => total > 0 ? Math.Round((decimal)aprov * 100m / total, 2) : 0m;
 
             var cartao = await pedidoReadRepo.GetStatsPorMetodoAsync(usuario.Id, MetodoPagamento.Cartao, null, null, ct);
@@ -543,8 +472,8 @@ namespace VersopayBackend.Services.Auth
                 }
             };
 
-            // 8) taxas
-            var taxas = fees.Get(); // seu ITaxasProvider
+            // 8) TAXAS
+            var taxas = fees.Get();
 
             var payload = new AuthWithPanelsDto
             {
@@ -562,16 +491,7 @@ namespace VersopayBackend.Services.Auth
             await emailEnvio.EnvioBoasVindasAsync(email, nome, ct);
         }
 
-        // ===== util interno p/ passar o novo bypass pro controller (opcional)
-        private (string Raw, DateTime Exp)? _pendingBypassCookie;
-        public (string Raw, DateTime Exp)? ConsumePendingBypassCookie()
-        {
-            var v = _pendingBypassCookie;
-            _pendingBypassCookie = null;
-            return v;
-        }
-
-        // ===== helpers =====
+        // ================== HELPERS ==================
         private static string GenerateSixDigitCode()
         {
             Span<byte> b = stackalloc byte[4];
@@ -590,6 +510,51 @@ namespace VersopayBackend.Services.Auth
             var last = name[^1];
 
             return $"{first}{new string('*', Math.Max(1, name.Length - 2))}{last}@{domain}";
+        }
+
+        private static UsuarioResponseDto BuildUsuarioResponse(Usuario u)
+        {
+            return new UsuarioResponseDto
+            {
+                Id = u.Id,
+                Nome = u.Nome,
+                Email = u.Email,
+                TipoCadastro = u.TipoCadastro,
+                Instagram = u.Instagram,
+                Telefone = u.Telefone,
+                CreatedAt = u.DataCriacao,
+
+                // Doc separados
+                Cpf = u.Cpf,
+                Cnpj = u.Cnpj,
+                CpfFormatado = DocumentoFormatter.Mask(u.Cpf),
+                CnpjFormatado = DocumentoFormatter.Mask(u.Cnpj),
+
+                IsAdmin = u.IsAdmin,
+
+                // Perfil
+                NomeFantasia = u.NomeFantasia,
+                RazaoSocial = u.RazaoSocial,
+                Site = u.Site,
+
+                // Endereço
+                EnderecoCep = u.EnderecoCep,
+                EnderecoLogradouro = u.EnderecoLogradouro,
+                EnderecoNumero = u.EnderecoNumero,
+                EnderecoComplemento = u.EnderecoComplemento,
+                EnderecoBairro = u.EnderecoBairro,
+                EnderecoCidade = u.EnderecoCidade,
+                EnderecoUF = u.EnderecoUF,
+
+                // Financeiro
+                NomeCompletoBanco = u.NomeCompletoBanco,
+                CpfCnpjDadosBancarios = u.CpfCnpjDadosBancarios,
+                CpfCnpjDadosBancariosFormatado = DocumentoFormatter.Mask(u.CpfCnpjDadosBancarios),
+                ChavePix = u.ChavePix,
+                ChaveCarteiraCripto = u.ChaveCarteiraCripto,
+
+                CadastroCompleto = u.CadastroCompleto
+            };
         }
     }
 }

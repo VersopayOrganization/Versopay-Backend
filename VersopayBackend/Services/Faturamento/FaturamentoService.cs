@@ -27,28 +27,24 @@ namespace VersopayBackend.Services
 
         public async Task<FaturamentoDto> RecalcularAsync(FaturamentoRecalcularRequest req, CancellationToken ct)
         {
-            // Normaliza & valida documento
             var digits = new string((req.CpfCnpj ?? string.Empty).Where(char.IsDigit).ToArray());
             if (digits.Length != 11 && digits.Length != 14)
                 throw new ArgumentException("CpfCnpj deve ter 11 (CPF) ou 14 (CNPJ) dígitos.");
 
-            // Período
             var inicio = DateTime.SpecifyKind(req.DataInicio, DateTimeKind.Utc);
             var fim = DateTime.SpecifyKind(req.DataFim, DateTimeKind.Utc);
             if (fim <= inicio)
                 throw new ArgumentException("Período inválido: DataFimUtc deve ser maior que DataInicioUtc.");
 
-            // Descobre o usuário pelo CPF/CNPJ sem exigir método novo no repo
-            var todosUsuarios = await usuarioRepo.GetAllNoTrackingAsync(ct);
-            var usuario = todosUsuarios.FirstOrDefault(u => (u.CpfCnpj ?? "") == digits);
+            // localiza usuário pelo CPF ou CNPJ
+            var usuarios = await usuarioRepo.GetAllNoTrackingAsync(ct);
+            var usuario = usuarios.FirstOrDefault(u => (u.Cpf == digits) || (u.Cnpj == digits));
             int? vendedorId = usuario?.Id;
 
-            // Agregações por método (usando métodos existentes do pedido repo)
             decimal vendasCartao = 0, vendasPix = 0, vendasBoleto = 0;
 
             if (vendedorId is not null)
             {
-                // Agrega por método: usamos os aprovados
                 var cartao = await pedidoReadRepo.GetStatsPorMetodoAsync(vendedorId.Value, MetodoPagamento.Cartao, inicio, fim, ct);
                 var pix = await pedidoReadRepo.GetStatsPorMetodoAsync(vendedorId.Value, MetodoPagamento.Pix, inicio, fim, ct);
                 var boleto = await pedidoReadRepo.GetStatsPorMetodoAsync(vendedorId.Value, MetodoPagamento.Boleto, inicio, fim, ct);
@@ -60,7 +56,6 @@ namespace VersopayBackend.Services
 
             var vendasTotais = vendasCartao + vendasPix + vendasBoleto;
 
-            // Reserva (se houver extrato)
             decimal reserva = 0m;
             if (vendedorId is not null)
             {
@@ -68,14 +63,11 @@ namespace VersopayBackend.Services
                 reserva = extrato?.ReservaFinanceira ?? 0m;
             }
 
-            // Vendas canceladas e dias sem vendas:
-            // Sem pedir novos métodos, usamos GetAllAsync com pageSize "alto".
             int vendasCanceladas = 0;
             int diasSemVendas = 0;
 
             if (vendedorId is not null)
             {
-                // 1) Canceladas
                 var cancelados = await pedidoReadRepo.GetAllAsync(
                     status: StatusPedido.Cancelado,
                     vendedorId: vendedorId.Value,
@@ -88,7 +80,6 @@ namespace VersopayBackend.Services
                 );
                 vendasCanceladas = cancelados.Count;
 
-                // 2) Dias sem vendas (considerando vendas aprovadas)
                 var aprovados = await pedidoReadRepo.GetAllAsync(
                     status: StatusPedido.Aprovado,
                     vendedorId: vendedorId.Value,
@@ -105,15 +96,16 @@ namespace VersopayBackend.Services
                     .Distinct()
                     .Count();
 
-                // intervalo em dias (início inclusivo, fim exclusivo)
                 var totalDias = (int)Math.Max(0, (fim.Date - inicio.Date).TotalDays);
                 diasSemVendas = Math.Max(0, totalDias - diasComVenda);
             }
 
-            // Monta entidade e persiste (se Salvar = true)
             var entity = new Faturamento
             {
-                CpfCnpj = digits,
+                // grava apenas o campo correspondente
+                Cpf = digits.Length == 11 ? digits : null,
+                Cnpj = digits.Length == 14 ? digits : null,
+
                 DataInicio = inicio,
                 DataFim = fim,
                 VendasTotais = vendasTotais,
