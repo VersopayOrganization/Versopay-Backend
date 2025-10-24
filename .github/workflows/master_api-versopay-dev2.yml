@@ -1,7 +1,10 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# ==========================================================
+# 🚀 Build and Deploy ASP.NET Core API to Azure Web App (PROD)
+# Ambiente: Produção (Branch master)
+# Serviço destino: api-versopay-dev2 (Azure App Service)
+# ==========================================================
 
-name: Build and deploy ASP.Net Core app to Azure Web App - api-versopay-dev2
+name: Build and deploy PROD API to Azure Web App - api-versopay-dev2
 
 on:
   push:
@@ -11,24 +14,47 @@ on:
 
 jobs:
   build:
+    name: Build .NET API
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read # Necessário para actions/checkout
 
     steps:
-      - uses: actions/checkout@v4
+      # -------------------------------
+      # 1. Clonar o repositório
+      # -------------------------------
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-      - name: Set up .NET Core
+      # -------------------------------
+      # 2. Configurar .NET 8 SDK
+      # -------------------------------
+      - name: Set up .NET Core SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
 
+      # -------------------------------
+      # 3. Restaurar dependências
+      # -------------------------------
+      - name: Restore dependencies
+        run: dotnet restore ./VersopayBackend/VersopayBackend.csproj
+
+      # -------------------------------
+      # 4. Buildar o projeto
+      # -------------------------------
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        run: dotnet build ./VersopayBackend/VersopayBackend.csproj --configuration Release --no-restore
 
+      # -------------------------------
+      # 5. Publicar o build
+      # -------------------------------
       - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+        run: dotnet publish ./VersopayBackend/VersopayBackend.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp" --no-build
 
+      # -------------------------------
+      # 6. Enviar artefato para o deploy
+      # -------------------------------
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -36,18 +62,25 @@ jobs:
           path: ${{env.DOTNET_ROOT}}/myapp
 
   deploy:
+    name: Deploy to Azure Web App
     runs-on: windows-latest
     needs: build
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write # Necessário para autenticação OIDC
+      contents: read
 
     steps:
+      # -------------------------------
+      # 1. Baixar artefato do build
+      # -------------------------------
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
-      
+
+      # -------------------------------
+      # 2. Login no Azure
+      # -------------------------------
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -55,6 +88,9 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CD9CF4B38526492984429DCC01A12929 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8595C1983AFA4785A6DA866E38DF5501 }}
 
+      # -------------------------------
+      # 3. Deploy no App Service
+      # -------------------------------
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -62,4 +98,3 @@ jobs:
           app-name: 'api-versopay-dev2'
           slot-name: 'Production'
           package: .
-          
