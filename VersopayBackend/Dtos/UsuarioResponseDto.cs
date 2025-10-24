@@ -2,7 +2,7 @@
 
 namespace VersopayBackend.Dtos
 {
-    public class UsuarioResponseDto
+    public sealed class UsuarioResponseDto
     {
         public int Id { get; set; }
         public string Nome { get; set; } = default!;
@@ -11,8 +11,26 @@ namespace VersopayBackend.Dtos
         public string? Instagram { get; set; }
         public string? Telefone { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string? Cpf { get; set; }
+        public string? Cnpj { get; set; }
+        public string? CpfFormatado { get; set; }
+        public string? CnpjFormatado { get; set; }
         public bool IsAdmin { get; set; }
-        public string? CpfCnpj { get; set; } = default!;       // só dígitos
-        public string? CpfCnpjFormatado { get; set; }         // 000.000.000-00 / 00.000.000/0000-00
+        public string? NomeFantasia { get; set; }
+        public string? RazaoSocial { get; set; }
+        public string? Site { get; set; }
+        public string? EnderecoCep { get; set; }
+        public string? EnderecoLogradouro { get; set; }
+        public string? EnderecoNumero { get; set; }
+        public string? EnderecoComplemento { get; set; }
+        public string? EnderecoBairro { get; set; }
+        public string? EnderecoCidade { get; set; }
+        public string? EnderecoUF { get; set; }
+        public string? NomeCompletoBanco { get; set; }
+        public string? CpfCnpjDadosBancarios { get; set; }
+        public string? CpfCnpjDadosBancariosFormatado { get; set; }
+        public string? ChavePix { get; set; }
+        public string? ChaveCarteiraCripto { get; set; }
+        public bool CadastroCompleto { get; set; }
     }
 }

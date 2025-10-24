@@ -39,11 +39,16 @@ namespace VersopayLibrary.Models
 
         public TipoEnvioManual? TipoEnvio { get; set; }
 
+        public MetodoPagamento MetodoPagamento { get; set; }
+
         public decimal? Taxa { get; set; }
         public decimal? ValorFinal { get; set; }
 
         // Auditoria
         public DateTime DataCadastro { get; set; } = DateTime.UtcNow; 
-        public DateTime? DataAprovacao { get; set; }                  
+        public DateTime? DataAprovacao { get; set; }
+
+        public string? ExternalId { get; set; }             // seu id/controle (idempotência)
+        public string? GatewayTransactionId { get; set; }   // id que vem do provedor (para casar no webhook)
     }
 }

@@ -20,6 +20,8 @@ namespace VersopayDatabase.Data
         public DbSet<Transferencia> Transferencias => Set<Transferencia>();
         public DbSet<Extrato> Extratos => Set<Extrato>();
         public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
+        public DbSet<Faturamento> Faturamentos => Set<Faturamento>();
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,18 +36,37 @@ namespace VersopayDatabase.Data
             usuario.Property(x => x.SenhaHash).IsRequired();
             usuario.Property(x => x.TipoCadastro).HasConversion<int?>();
             // CPF/CNPJ opcional no cadastro inicial
-            usuario.Property(x => x.CpfCnpj).HasMaxLength(14);
+            usuario.Property(x => x.Cpf).HasMaxLength(11);
+            usuario.Property(x => x.Cnpj).HasMaxLength(14);
             usuario.Property(x => x.IsAdmin).HasDefaultValue(false);
             usuario.HasIndex(x => x.Email).IsUnique();
             // unicidade do documento só quando houver valor
-            usuario.HasIndex(x => x.CpfCnpj).IsUnique().HasFilter("[CpfCnpj] IS NOT NULL"); 
+            usuario.HasIndex(x => x.Cpf).IsUnique().HasFilter("[Cpf] IS NOT NULL");
+            usuario.HasIndex(x => x.Cnpj).IsUnique().HasFilter("[Cnpj] IS NOT NULL");
+
+            usuario.Property(x => x.NomeFantasia).HasMaxLength(160);
+            usuario.Property(x => x.RazaoSocial).HasMaxLength(160);
+            usuario.Property(x => x.Site).HasMaxLength(160);
+
+            usuario.Property(x => x.EnderecoCep).HasMaxLength(9);
+            usuario.Property(x => x.EnderecoLogradouro).HasMaxLength(120);
+            usuario.Property(x => x.EnderecoNumero).HasMaxLength(20);
+            usuario.Property(x => x.EnderecoComplemento).HasMaxLength(80);
+            usuario.Property(x => x.EnderecoBairro).HasMaxLength(80);
+            usuario.Property(x => x.EnderecoCidade).HasMaxLength(80);
+            usuario.Property(x => x.EnderecoUF).HasMaxLength(2);
+
+            usuario.Property(x => x.NomeCompletoBanco).HasMaxLength(160);
+            usuario.Property(x => x.CpfCnpjDadosBancarios).HasMaxLength(14);
+            usuario.Property(x => x.ChavePix).HasMaxLength(120);
+            usuario.Property(x => x.ChaveCarteiraCripto).HasMaxLength(120);
 
             // regra por tipo, mas permitindo o estado "inicial" (ambos nulos)
             usuario.ToTable(t => t.HasCheckConstraint(
-                "CK_Usuarios_CpfCnpj_Tipo",
-                "((TipoCadastro IS NULL AND [CpfCnpj] IS NULL) " +
-                "OR (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) " +
-                "OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14))"
+                "CK_Usuarios_Cpf_Cnpj_Tipo",
+                "((TipoCadastro IS NULL AND Cpf IS NULL AND Cnpj IS NULL) " +
+                "OR (TipoCadastro = 0 AND LEN(Cpf) = 11 AND Cnpj IS NULL) " +
+                "OR (TipoCadastro = 1 AND LEN(Cnpj) = 14 AND Cpf IS NULL))"
             ));
 
             var documento = modelBuilder.Entity<Documento>();
@@ -74,7 +95,7 @@ namespace VersopayDatabase.Data
             var refreshToken = modelBuilder.Entity<RefreshToken>();
             refreshToken.HasKey(x => x.Id);
             refreshToken.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
-            refreshToken.HasIndex(x => x.TokenHash).IsUnique(); 
+            refreshToken.HasIndex(x => x.TokenHash).IsUnique();
             refreshToken.HasOne(x => x.Usuario)
               .WithMany()
               .HasForeignKey(x => x.UsuarioId)
@@ -104,47 +125,62 @@ namespace VersopayDatabase.Data
              .IsRequired();
 
             pedido.HasOne(x => x.Vendedor)
-             .WithMany() 
+             .WithMany()
              .HasForeignKey(x => x.VendedorId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            pedido.Property(x => x.ExternalId).HasMaxLength(80);
+            pedido.Property(x => x.GatewayTransactionId).HasMaxLength(80);
+            pedido.HasIndex(x => x.ExternalId);
+            pedido.HasIndex(x => x.GatewayTransactionId);
 
             // Índices úteis
             pedido.HasIndex(x => x.VendedorId);
             pedido.HasIndex(x => new { x.Status, x.Criacao });
             pedido.HasIndex(x => x.MetodoPagamento);
 
+
             var kycKyb = modelBuilder.Entity<KycKyb>();
             kycKyb.HasKey(x => x.Id);
 
             kycKyb.Property(x => x.Status).IsRequired();
 
-            kycKyb.Property(x => x.CpfCnpj)
-             .HasMaxLength(14)
-             .IsRequired();
+            kycKyb.Property(x => x.Cpf)
+                 .HasMaxLength(11); // NÃO marcar IsRequired
+
+            kycKyb.Property(x => x.Cnpj)
+                 .HasMaxLength(14); // NÃO marcar IsRequired
 
             kycKyb.Property(x => x.Nome)
-             .HasMaxLength(120)
-             .IsRequired();
+                 .HasMaxLength(120)
+                 .IsRequired();
 
             kycKyb.Property(x => x.NumeroDocumento)
-             .HasMaxLength(64);
+                 .HasMaxLength(64);
 
-            kycKyb.Property(x => x.DataAprovacao); 
+            kycKyb.Property(x => x.DataAprovacao);
 
             kycKyb.HasOne(x => x.Usuario)
-             .WithMany() 
-             .HasForeignKey(x => x.UsuarioId)
-             .OnDelete(DeleteBehavior.Cascade);
+                 .WithMany()
+                 .HasForeignKey(x => x.UsuarioId)
+                 .OnDelete(DeleteBehavior.Cascade);
 
             // índices úteis
             kycKyb.HasIndex(x => x.UsuarioId);
             kycKyb.HasIndex(x => new { x.Status, x.UsuarioId });
 
+            // (Opcional) constraint: permite os 3 estados — ambos nulos, só CPF (11), só CNPJ (14)
+            kycKyb.ToTable(t => t.HasCheckConstraint(
+                "CK_KycKyb_Cpf_Cnpj",
+                "((Cpf IS NULL AND Cnpj IS NULL) OR (LEN(Cpf) = 11 AND Cnpj IS NULL) OR (LEN(Cnpj) = 14 AND Cpf IS NULL))"
+            ));
+
+
 
             var antecipacao = modelBuilder.Entity<Antecipacao>();
             antecipacao.HasKey(x => x.Id);
 
-            antecipacao.Property(x => x.DataSolicitacao).IsRequired(); 
+            antecipacao.Property(x => x.DataSolicitacao).IsRequired();
             antecipacao.Property(x => x.Status).IsRequired();
 
             antecipacao.Property(x => x.Valor)
@@ -152,7 +188,7 @@ namespace VersopayDatabase.Data
                 .IsRequired();
 
             antecipacao.HasOne(x => x.Empresa)
-                .WithMany()                  
+                .WithMany()
                 .HasForeignKey(x => x.EmpresaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -174,6 +210,21 @@ namespace VersopayDatabase.Data
 
             webhook.HasIndex(x => x.Ativo);
             webhook.HasIndex(x => x.Eventos);
+
+            var inb = modelBuilder.Entity<InboundWebhookLog>();
+            inb.HasKey(x => x.Id);
+            inb.Property(x => x.EventKey).HasMaxLength(180).IsRequired();
+            inb.HasIndex(x => x.EventKey).IsUnique();
+
+            inb.Property(x => x.TransactionId).HasMaxLength(80);
+            inb.Property(x => x.ExternalId).HasMaxLength(80);
+            inb.Property(x => x.RequestNumber).HasMaxLength(80);
+            inb.Property(x => x.Status).HasMaxLength(40);
+            inb.Property(x => x.TipoTransacao).HasMaxLength(20);
+
+            inb.Property(x => x.Valor).HasColumnType("decimal(18,2)");
+            inb.Property(x => x.Fee).HasColumnType("decimal(18,2)");
+            inb.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
 
 
             var bypassToken = modelBuilder.Entity<BypassToken>();
@@ -225,6 +276,11 @@ namespace VersopayDatabase.Data
             transferencia.Property(x => x.Empresa).HasMaxLength(160);
             transferencia.Property(x => x.ChavePix).HasMaxLength(120);
 
+            transferencia.Property(x => x.ExternalId).HasMaxLength(80);
+            transferencia.Property(x => x.GatewayTransactionId).HasMaxLength(80);
+            transferencia.HasIndex(x => x.ExternalId);
+            transferencia.HasIndex(x => x.GatewayTransactionId);
+
             transferencia.HasOne(x => x.Solicitante)
                 .WithMany()
                 .HasForeignKey(x => x.SolicitanteId)
@@ -262,6 +318,26 @@ namespace VersopayDatabase.Data
                .OnDelete(DeleteBehavior.Cascade);
 
             movimentacaoFinanceira.HasIndex(x => new { x.ClienteId, x.Status, x.CriadoEmUtc });
+
+            var faturamento = modelBuilder.Entity<Faturamento>();
+            faturamento.HasKey(x => x.Id);
+
+            faturamento.Property(x => x.Cpf).HasMaxLength(11);
+            faturamento.Property(x => x.Cnpj).HasMaxLength(14);
+
+            faturamento.Property(x => x.VendasTotais).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.VendasCartao).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.VendasBoleto).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.VendasPix).HasColumnType("decimal(18,2)");
+            faturamento.Property(x => x.Reserva).HasColumnType("decimal(18,2)");
+
+            faturamento.Property(x => x.DataInicio).IsRequired();
+            faturamento.Property(x => x.DataFim).IsRequired();
+            faturamento.Property(x => x.AtualizadoEmUtc).IsRequired();
+
+            faturamento.HasIndex(x => x.Cpf);
+            faturamento.HasIndex(x => x.Cnpj);
+            faturamento.HasIndex(x => new { x.Cpf, x.Cnpj, x.DataInicio, x.DataFim });
         }
     }
 }

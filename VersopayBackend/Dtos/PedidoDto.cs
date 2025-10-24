@@ -3,7 +3,7 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Dtos
 {
-    public class PedidoResponseDto
+    public class PedidoDto
     {
         public int Id { get; set; }
 

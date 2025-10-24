@@ -1,4 +1,5 @@
-﻿using VersopayLibrary.Models;
+﻿using VersopayBackend.Common;
+using VersopayLibrary.Models;
 
 namespace VersopayBackend.Dtos
 {
@@ -13,8 +14,32 @@ namespace VersopayBackend.Dtos
             Instagram = u.Instagram,
             Telefone = u.Telefone,
             CreatedAt = u.DataCriacao,
-            CpfCnpj = u.CpfCnpj,
-            IsAdmin = u.IsAdmin
+
+            Cpf = u.Cpf,
+            Cnpj = u.Cnpj,
+            CpfFormatado = DocumentoFormatter.Mask(u.Cpf),
+            CnpjFormatado = DocumentoFormatter.Mask(u.Cnpj),
+
+            CpfCnpjDadosBancarios = u.CpfCnpjDadosBancarios,
+            CpfCnpjDadosBancariosFormatado = DocumentoFormatter.Mask(u.CpfCnpjDadosBancarios),
+
+            IsAdmin = u.IsAdmin,
+
+            // ... (fantasia, endereço, banco etc.)
+            NomeFantasia = u.NomeFantasia,
+            RazaoSocial = u.RazaoSocial,
+            Site = u.Site,
+            EnderecoCep = u.EnderecoCep,
+            EnderecoLogradouro = u.EnderecoLogradouro,
+            EnderecoNumero = u.EnderecoNumero,
+            EnderecoComplemento = u.EnderecoComplemento,
+            EnderecoBairro = u.EnderecoBairro,
+            EnderecoCidade = u.EnderecoCidade,
+            EnderecoUF = u.EnderecoUF,
+            NomeCompletoBanco = u.NomeCompletoBanco,
+            ChavePix = u.ChavePix,
+            ChaveCarteiraCripto = u.ChaveCarteiraCripto,
+            CadastroCompleto = u.CadastroCompleto
         };
     }
 }

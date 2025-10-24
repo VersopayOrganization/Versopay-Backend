@@ -10,7 +10,7 @@ namespace VersopayBackend.Controllers
     public class PedidosController(IPedidosService svc) : ControllerBase
     {
         [HttpPost]
-        public async Task<ActionResult<PedidoResponseDto>> Create([FromBody] PedidoCreateDto dto, CancellationToken ct)
+        public async Task<ActionResult<PedidoDto>> Create([FromBody] PedidoCreateDto dto, CancellationToken ct)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
@@ -22,22 +22,22 @@ namespace VersopayBackend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PedidoResponseDto>>> GetAll(
+        public async Task<ActionResult<IEnumerable<PedidoDto>>> GetAll(
             [FromQuery] string? status,
             [FromQuery] int? vendedorId,
             [FromQuery] string? metodo,
-            [FromQuery] DateTime? dataDeUtc,
-            [FromQuery] DateTime? dataAteUtc,
+            [FromQuery] DateTime? dataDe,
+            [FromQuery] DateTime? dataAte,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             CancellationToken ct = default)
         {
-            var list = await svc.GetAllAsync(status, vendedorId, metodo, dataDeUtc, dataAteUtc, page, pageSize, ct);
+            var list = await svc.GetAllAsync(status, vendedorId, metodo, dataDe, dataAte, page, pageSize, ct);
             return Ok(list);
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<PedidoResponseDto>> GetById(int id, CancellationToken ct)
+        public async Task<ActionResult<PedidoDto>> GetById(int id, CancellationToken ct)
         {
             var res = await svc.GetByIdAsync(id, ct);
             return res is null ? NotFound() : Ok(res);

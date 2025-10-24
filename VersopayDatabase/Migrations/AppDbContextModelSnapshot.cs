@@ -241,6 +241,167 @@ namespace VersopayDatabase.Migrations
                     b.ToTable("Extratos");
                 });
 
+            modelBuilder.Entity("VersopayLibrary.Models.Faturamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AtualizadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Cnpj")
+                        .HasMaxLength(14)
+                        .HasColumnType("nvarchar(14)");
+
+                    b.Property<string>("Cpf")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<DateTime>("DataFim")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DataInicio")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DiasSemVendas")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Reserva")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VendasBoleto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("VendasCanceladas")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("VendasCartao")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VendasPix")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VendasTotais")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cnpj");
+
+                    b.HasIndex("Cpf");
+
+                    b.HasIndex("Cpf", "Cnpj", "DataInicio", "DataFim");
+
+                    b.ToTable("Faturamentos");
+                });
+
+            modelBuilder.Entity("VersopayLibrary.Models.InboundWebhookLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CpfRecebedor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DataEventoUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DebtorDocument")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DebtorName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<int>("Evento")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<decimal?>("Fee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HeadersJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Ispb")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("NetAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("NomeRecebedor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("PedidoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProcessedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProcessingError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProcessingStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Provedor")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("SourceIp")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TipoTransacao")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int?>("TransferenciaId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Valor")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventKey")
+                        .IsUnique();
+
+                    b.ToTable("InboundWebhookLog");
+                });
+
             modelBuilder.Entity("VersopayLibrary.Models.KycKyb", b =>
                 {
                     b.Property<int>("Id")
@@ -249,10 +410,13 @@ namespace VersopayDatabase.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CpfCnpj")
-                        .IsRequired()
+                    b.Property<string>("Cnpj")
                         .HasMaxLength(14)
                         .HasColumnType("nvarchar(14)");
+
+                    b.Property<string>("Cpf")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<DateTime?>("DataAprovacao")
                         .HasColumnType("datetime2");
@@ -278,7 +442,10 @@ namespace VersopayDatabase.Migrations
 
                     b.HasIndex("Status", "UsuarioId");
 
-                    b.ToTable("KycKybs");
+                    b.ToTable("KycKybs", t =>
+                        {
+                            t.HasCheckConstraint("CK_KycKyb_Cpf_Cnpj", "((Cpf IS NULL AND Cnpj IS NULL) OR (LEN(Cpf) = 11 AND Cnpj IS NULL) OR (LEN(Cnpj) = 14 AND Cpf IS NULL))");
+                        });
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.MovimentacaoFinanceira", b =>
@@ -374,6 +541,14 @@ namespace VersopayDatabase.Migrations
                     b.Property<DateTime?>("DataPagamento")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("GatewayTransactionId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<string>("MetodoPagamento")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -395,6 +570,10 @@ namespace VersopayDatabase.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ExternalId");
+
+                    b.HasIndex("GatewayTransactionId");
 
                     b.HasIndex("MetodoPagamento");
 
@@ -484,6 +663,17 @@ namespace VersopayDatabase.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("GatewayTransactionId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("MetodoPagamento")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nome")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
@@ -508,6 +698,10 @@ namespace VersopayDatabase.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExternalId");
+
+                    b.HasIndex("GatewayTransactionId");
+
                     b.HasIndex("SolicitanteId");
 
                     b.HasIndex("Status", "DataSolicitacao");
@@ -523,7 +717,26 @@ namespace VersopayDatabase.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CpfCnpj")
+                    b.Property<bool>("CadastroCompleto")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ChaveCarteiraCripto")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ChavePix")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Cnpj")
+                        .HasMaxLength(14)
+                        .HasColumnType("nvarchar(14)");
+
+                    b.Property<string>("Cpf")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<string>("CpfCnpjDadosBancarios")
                         .HasMaxLength(14)
                         .HasColumnType("nvarchar(14)");
 
@@ -537,6 +750,34 @@ namespace VersopayDatabase.Migrations
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("EnderecoBairro")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("EnderecoCep")
+                        .HasMaxLength(9)
+                        .HasColumnType("nvarchar(9)");
+
+                    b.Property<string>("EnderecoCidade")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("EnderecoComplemento")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("EnderecoLogradouro")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("EnderecoNumero")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("EnderecoUF")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<string>("Instagram")
                         .HasMaxLength(80)
@@ -552,9 +793,25 @@ namespace VersopayDatabase.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
+                    b.Property<string>("NomeCompletoBanco")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("NomeFantasia")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("RazaoSocial")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
                     b.Property<string>("SenhaHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Site")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
 
                     b.Property<string>("Telefone")
                         .HasMaxLength(20)
@@ -565,16 +822,20 @@ namespace VersopayDatabase.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CpfCnpj")
+                    b.HasIndex("Cnpj")
                         .IsUnique()
-                        .HasFilter("[CpfCnpj] IS NOT NULL");
+                        .HasFilter("[Cnpj] IS NOT NULL");
+
+                    b.HasIndex("Cpf")
+                        .IsUnique()
+                        .HasFilter("[Cpf] IS NOT NULL");
 
                     b.HasIndex("Email")
                         .IsUnique();
 
                     b.ToTable("Usuarios", t =>
                         {
-                            t.HasCheckConstraint("CK_Usuarios_CpfCnpj_Tipo", "((TipoCadastro IS NULL AND [CpfCnpj] IS NULL) OR (TipoCadastro = 0 AND LEN([CpfCnpj]) = 11) OR (TipoCadastro = 1 AND LEN([CpfCnpj]) = 14))");
+                            t.HasCheckConstraint("CK_Usuarios_Cpf_Cnpj_Tipo", "((TipoCadastro IS NULL AND Cpf IS NULL AND Cnpj IS NULL) OR (TipoCadastro = 0 AND LEN(Cpf) = 11 AND Cnpj IS NULL) OR (TipoCadastro = 1 AND LEN(Cnpj) = 14 AND Cpf IS NULL))");
                         });
                 });
 

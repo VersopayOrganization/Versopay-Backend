@@ -34,18 +34,18 @@ namespace VersopayBackend.Repositories
             return (quantidade, total);
         }
 
-        public async Task<MetodoStatsRaw> GetStatsPorMetodoAsync(int vendedorId, MetodoPagamento metodo, DateTime? de, DateTime? ate, CancellationToken ct)
+        public async Task<MetodoStatsRaw> GetStatsPorMetodoAsync(int vendedorId, MetodoPagamento metodo, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken)
         {
-            var q = BaseQ(appDbContext, vendedorId, de, ate).Where(p => p.MetodoPagamento == metodo);
+            var query = BaseQ(appDbContext, vendedorId, dataInicio, dataFim).Where(pedido => pedido.MetodoPagamento == metodo);
 
-            var totalQtd = await q.CountAsync(ct);
-            var totalVal = await q.SumAsync(p => (decimal?)p.Valor, ct) ?? 0m;
+            var totalQtd = await query.CountAsync(cancellationToken);
+            var totalVal = await query.SumAsync(pedido => (decimal?)pedido.Valor, cancellationToken) ?? 0m;
 
-            var qAprov = q.Where(p => p.Status == StatusPedido.Aprovado);
-            var aprovQtd = await qAprov.CountAsync(ct);
-            var aprovVal = await qAprov.SumAsync(p => (decimal?)p.Valor, ct) ?? 0m;
+            var quantidadeAprovados = query.Where(pedido => pedido.Status == StatusPedido.Aprovado);
+            var quantidadeAprovadosQtd = await quantidadeAprovados.CountAsync(cancellationToken);
+            var quantidadeAprovadosValor = await quantidadeAprovados.SumAsync(p => (decimal?)p.Valor, cancellationToken) ?? 0m;
 
-            return new MetodoStatsRaw { QtdTotal = totalQtd, Total = totalVal, QtdAprovado = aprovQtd, TotalAprovado = aprovVal };
+            return new MetodoStatsRaw { QtdTotal = totalQtd, Total = totalVal, QtdAprovado = quantidadeAprovadosQtd, TotalAprovado = quantidadeAprovadosValor };
         }
 
         public async Task<(int qtd, decimal total)> GetChargebackAsync(int vendedorId, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken)
@@ -61,8 +61,8 @@ namespace VersopayBackend.Repositories
             StatusPedido? status,
             int? vendedorId,
             MetodoPagamento? metodo,
-            DateTime? dataDeUtc,
-            DateTime? dataAteUtc,
+            DateTime? dataInicio,
+            DateTime? dataFim,
             int page,
             int pageSize,
             CancellationToken cancellationToken)
@@ -77,13 +77,35 @@ namespace VersopayBackend.Repositories
             if (status.HasValue) query = query.Where(pedido => pedido.Status == status.Value);
             if (vendedorId.HasValue) query = query.Where(pedido => pedido.VendedorId == vendedorId.Value);
             if (metodo.HasValue) query = query.Where(pedido => pedido.MetodoPagamento == metodo.Value);
-            if (dataDeUtc.HasValue) query = query.Where(pedido => pedido.Criacao >= dataDeUtc.Value);
-            if (dataAteUtc.HasValue) query = query.Where(pedido => pedido.Criacao < dataAteUtc.Value);
+            if (dataInicio.HasValue) query = query.Where(pedido => pedido.Criacao >= dataInicio.Value);
+            if (dataFim.HasValue) query = query.Where(pedido => pedido.Criacao < dataFim.Value);
 
             return await query.OrderByDescending(pedido => pedido.Criacao)
                           .Skip((page - 1) * pageSize)
                           .Take(pageSize)
                           .ToListAsync(cancellationToken);
+        }
+
+        public async Task<int> GetCountAllAsync(
+            StatusPedido? status,
+            int? vendedorId,
+            MetodoPagamento? metodo,
+            DateTime? dataInicio,
+            DateTime? dataFim,
+            CancellationToken cancellationToken)
+        {
+
+            var query = appDbContext.Pedidos.AsNoTracking()
+                              .Include(pedido => pedido.Vendedor)
+                              .AsQueryable();
+
+            if (status.HasValue) query = query.Where(pedido => pedido.Status == status.Value);
+            if (vendedorId.HasValue) query = query.Where(pedido => pedido.VendedorId == vendedorId.Value);
+            if (metodo.HasValue) query = query.Where(pedido => pedido.MetodoPagamento == metodo.Value);
+            if (dataInicio.HasValue) query = query.Where(pedido => pedido.Criacao >= dataInicio.Value);
+            if (dataFim.HasValue) query = query.Where(pedido => pedido.Criacao < dataFim.Value);
+
+            return await query.CountAsync(cancellationToken);
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);

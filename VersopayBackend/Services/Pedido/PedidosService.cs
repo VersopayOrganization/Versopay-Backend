@@ -10,7 +10,7 @@ namespace VersopayBackend.Services
         IPedidoRepository pedidoRepository,
         IUsuarioRepository usuarioRepository) : IPedidosService
     {
-        public async Task<PedidoResponseDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken)
+        public async Task<PedidoDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken)
         {
             // valida vendedor
             var vendedor = await usuarioRepository.GetByIdNoTrackingAsync(pedidoCreateDto.VendedorId, cancellationToken);
@@ -34,7 +34,7 @@ namespace VersopayBackend.Services
             await pedidoRepository.AddAsync(pedido, cancellationToken);
             await pedidoRepository.SaveChangesAsync(cancellationToken);
 
-            return new PedidoResponseDto
+            return new PedidoDto
             {
                 Id = pedido.Id,
                 Criacao = pedido.Criacao,
@@ -49,41 +49,46 @@ namespace VersopayBackend.Services
             };
         }
 
-        public async Task<IEnumerable<PedidoResponseDto>> GetAllAsync(
+        public async Task<PedidosResponseDto> GetAllAsync(
             string? status, int? vendedorId, string? metodo,
-            DateTime? dataDeUtc, DateTime? dataAteUtc, int page, int pageSize,
+            DateTime? dataInicio, DateTime? dataFim, int page, int pageSize,
             CancellationToken cancellationToken)
         {
-            StatusPedido? st = null;
+            StatusPedido? statusPedido = null;
             if (!string.IsNullOrWhiteSpace(status) &&
-                Enum.TryParse<StatusPedido>(status, true, out var sParsed)) st = sParsed;
+                Enum.TryParse<StatusPedido>(status, true, out var sParsed)) statusPedido = sParsed;
 
-            MetodoPagamento? mp = null;
+            MetodoPagamento? metodoPagamento = null;
             if (!string.IsNullOrWhiteSpace(metodo) &&
-                Enum.TryParse<MetodoPagamento>(metodo, true, out var mParsed)) mp = mParsed;
+                Enum.TryParse<MetodoPagamento>(metodo, true, out var mParsed)) metodoPagamento = mParsed;
 
-            var list = await pedidoRepository.GetAllAsync(st, vendedorId, mp, dataDeUtc, dataAteUtc, page, pageSize, cancellationToken);
-            return list.Select(pedidoResponseDto => new PedidoResponseDto
+            var count = await pedidoRepository.GetCountAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, cancellationToken);
+            var list = await pedidoRepository.GetAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, page, pageSize, cancellationToken);
+            return new PedidosResponseDto
             {
-                Id = pedidoResponseDto.Id,
-                Criacao = pedidoResponseDto.Criacao,
-                CriacaoBr = TimeUtils.ToBrazilOffset(pedidoResponseDto.Criacao),
-                DataPagamento = pedidoResponseDto.DataPagamento,
-                MetodoPagamento = pedidoResponseDto.MetodoPagamento.ToString(),
-                Valor = pedidoResponseDto.Valor,
-                VendedorId = pedidoResponseDto.VendedorId,
-                VendedorNome = pedidoResponseDto.Vendedor?.Nome,
-                Produto = pedidoResponseDto.Produto,
-                Status = pedidoResponseDto.Status
-            });
+                Pedidos = list.Select(pedidoResponseDto => new PedidoDto
+                {
+                    Id = pedidoResponseDto.Id,
+                    Criacao = pedidoResponseDto.Criacao,
+                    CriacaoBr = TimeUtils.ToBrazilOffset(pedidoResponseDto.Criacao),
+                    DataPagamento = pedidoResponseDto.DataPagamento,
+                    MetodoPagamento = pedidoResponseDto.MetodoPagamento.ToString(),
+                    Valor = pedidoResponseDto.Valor,
+                    VendedorId = pedidoResponseDto.VendedorId,
+                    VendedorNome = pedidoResponseDto.Vendedor?.Nome,
+                    Produto = pedidoResponseDto.Produto,
+                    Status = pedidoResponseDto.Status
+                }),
+                TotalRegistros = count
+            };
         }
 
-        public async Task<PedidoResponseDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
+        public async Task<PedidoDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
         {
             var pedidoResponseDto = await pedidoRepository.GetByIdNoTrackingAsync(id, cancellationToken);
             if (pedidoResponseDto is null) return null;
 
-            return new PedidoResponseDto
+            return new PedidoDto
             {
                 Id = pedidoResponseDto.Id,
                 Criacao = pedidoResponseDto.Criacao,

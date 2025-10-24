@@ -139,6 +139,9 @@ namespace VersopayBackend.Controllers
             if (pending is not null)
                 SetBypassCookie(pending.Value.Raw, pending.Value.Exp);
 
+
+            // Send welcome email
+            await auth.SendWelcomeEmail(result.Payload.Perfil.Email, result.Payload.Perfil.Nome, ct);
             // payload completo: auth + perfil + dashboard + taxas
             return Ok(result.Payload);
         }
