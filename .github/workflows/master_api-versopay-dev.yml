@@ -38,19 +38,19 @@ jobs:
       # 3. Restaurar dependências
       # -------------------------------
       - name: Restore dependencies
-        run: dotnet restore ./Versopay-Backend.csproj
+        run: dotnet restore ./VersopayBackend.csproj
 
       # -------------------------------
       # 4. Buildar o projeto
       # -------------------------------
       - name: Build with dotnet
-        run: dotnet build ./Versopay-Backend.csproj --configuration Release --no-restore
+        run: dotnet build ./VersopayBackend.csproj --configuration Release --no-restore
 
       # -------------------------------
       # 5. Publicar o build
       # -------------------------------
       - name: dotnet publish
-        run: dotnet publish ./Versopay-Backend.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp" --no-build
+        run: dotnet publish ./VersopayBackend.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp" --no-build
 
       # -------------------------------
       # 6. Enviar artefato para o deploy
@@ -98,3 +98,4 @@ jobs:
           app-name: 'api-versopay-dev'
           slot-name: 'Production'
           package: .
+
