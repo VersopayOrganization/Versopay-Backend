@@ -61,9 +61,8 @@ builder.Services.AddCors(options =>
             // DEV (Angular)
             "http://localhost:4200", "https://localhost:4200",
             "http://127.0.0.1:4200", "https://127.0.0.1:4200",
-            "http://localhost:4000", "https://localhost:4000"
-        // PROD (se houver front próprio/domínio)
-        "https://kind-stone-0967bd30f.3.azurestaticapps.net",
+            "http://localhost:4000", "https://localhost:4000",
+            "https://kind-stone-0967bd30f.3.azurestaticapps.net"
         // "https://app.seu-front.com"
         )
         .AllowAnyHeader()
