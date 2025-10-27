@@ -58,14 +58,17 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsDev", p =>
         p.WithOrigins(
-            "http://localhost:4200",
-            "https://localhost:4200",
-            "http://127.0.0.1:4200",
-            "https://127.0.0.1:4200"
+            // DEV (Angular)
+            "http://localhost:4200", "https://localhost:4200",
+            "http://127.0.0.1:4200", "https://127.0.0.1:4200",
+            "http://localhost:4000", "https://localhost:4000"
+        // PROD (se houver front próprio/domínio)
+        // "https://seu-front.com",
+        // "https://app.seu-front.com"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials() // << necessário para cookies cross-site
+        .AllowCredentials()   // necessário para cookies
     );
 });
 
