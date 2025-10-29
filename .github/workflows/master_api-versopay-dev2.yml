@@ -1,7 +1,6 @@
 # ==========================================================
-# 🚀 Build and Deploy ASP.NET Core API to Azure Web App (PROD)
-# Ambiente: Produção (Branch master)
-# Serviço destino: api-versopay-dev2 (Azure App Service)
+# 🚀 Build and Deploy ASP.NET Core API to Azure Web App (DEV)
+# App Service: api-versopay-dev2  |  Branch: develop
 # ==========================================================
 
 name: Build and deploy DEV API to Azure Web App - api-versopay-dev2
@@ -15,6 +14,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -27,17 +27,17 @@ jobs:
       - name: Restore
         run: dotnet restore ./VersopayBackend/VersopayBackend.csproj
 
-      - name: Build
+      - name: Build (Release)
         run: dotnet build ./VersopayBackend/VersopayBackend.csproj -c Release --no-restore
 
-      - name: Publish
-        run: dotnet publish ./VersopayBackend/VersopayBackend.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp" --no-build
+      - name: Publish (Release)
+        run: dotnet publish ./VersopayBackend/VersopayBackend.csproj -c Release -o ./publish --no-build
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          name: api-publish
+          path: ./publish
 
   deploy:
     runs-on: windows-latest
@@ -45,15 +45,22 @@ jobs:
     permissions:
       id-token: write
       contents: read
+
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: .net-app
+          name: api-publish
+          path: ./publish
 
-      # ⚠️ Precisamos do código-fonte nesta job para rodar dotnet-ef
+      # ⚠️ Para rodar dotnet-ef precisamos do código-fonte (csproj, Migrations, etc.)
       - name: Checkout source code (for EF)
         uses: actions/checkout@v4
+
+      - name: Set up .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -62,25 +69,17 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CD9CF4B38526492984429DCC01A12929 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8595C1983AFA4785A6DA866E38DF5501 }}
 
-      - name: Deploy to Azure Web App (DEV)
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'api-versopay-dev2'
-          slot-name: 'Production'
-          package: .
-
       # --- MIGRAÇÕES (DEV) ---
+      # Dica: deixe a connection string em secrets: DEV_SQL_CONNECTION_STRING
       - name: Install dotnet-ef tool
         run: dotnet tool install --global dotnet-ef
 
       - name: Add dotnet tools to PATH
         shell: pwsh
-        run: |
-          echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+        run: echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
       - name: Run EF Core Migrations (DEV)
         env:
-          # Ajuste o nome da chave conforme seu appsettings.json (ConnectionStrings:DefaultConnection)
           ConnectionStrings__DefaultConnection: ${{ secrets.DEV_SQL_CONNECTION_STRING }}
           ASPNETCORE_ENVIRONMENT: Development
         run: |
@@ -89,3 +88,10 @@ jobs:
             --startup-project ./VersopayBackend/VersopayBackend.csproj `
             --context AppDbContext
 
+      # --- DEPLOY (usa o publish baixado) ---
+      - name: Deploy to Azure Web App (DEV)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'api-versopay-dev2'
+          slot-name: 'Production'
+          package: ./publish
