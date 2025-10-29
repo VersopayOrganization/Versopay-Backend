@@ -346,6 +346,7 @@ namespace VersopayDatabase.Data
             faturamento.HasIndex(x => new { x.Cpf, x.Cnpj, x.DataInicio, x.DataFim });
 
             var providerCredential = modelBuilder.Entity<ProviderCredential>();
+            providerCredential.ToTable("ProviderCredentials");
             providerCredential.HasKey(x => x.Id);
             providerCredential.Property(x => x.ClientId).HasMaxLength(120).IsRequired();
             providerCredential.Property(x => x.ClientSecret).HasMaxLength(160).IsRequired();
