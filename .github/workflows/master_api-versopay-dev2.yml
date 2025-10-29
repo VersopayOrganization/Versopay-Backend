@@ -1,9 +1,12 @@
 # ==========================================================
-# 🚀 Build and Deploy ASP.NET Core API to Azure Web App (DEV)
-# App Service: api-versopay-dev2  |  Branch: develop
+# 🚀 Build & Deploy API (DEV) via Publish Profile + EF Migrations
+# App Service: api-versopay-dev2 | Branch: develop
+# Secrets exigidos:
+# - AZURE_WEBAPP_PUBLISH_PROFILE_DEV2 (XML do publish profile)
+# - DEV_SQL_CONNECTION_STRING         (connection string do Azure SQL)
 # ==========================================================
 
-name: Build and deploy DEV API to Azure Web App - api-versopay-dev2
+name: Build and deploy DEV API to Azure Web App - api-versopay-dev2 (PublishProfile)
 
 on:
   push:
@@ -36,24 +39,22 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: api-publish
+          name: .net-app
           path: ./publish
 
   deploy:
     runs-on: windows-latest
     needs: build
     permissions:
-      id-token: write
       contents: read
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: api-publish
+          name: .net-app
           path: ./publish
 
-      # ⚠️ Para rodar dotnet-ef precisamos do código-fonte (csproj, Migrations, etc.)
       - name: Checkout source code (for EF)
         uses: actions/checkout@v4
 
@@ -62,16 +63,8 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_3E254A7E12454689B27CF83D7F3EA34A }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CD9CF4B38526492984429DCC01A12929 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8595C1983AFA4785A6DA866E38DF5501 }}
-
       # --- MIGRAÇÕES (DEV) ---
-      # Dica: deixe a connection string em secrets: DEV_SQL_CONNECTION_STRING
-      - name: Install dotnet-ef tool
+      - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
 
       - name: Add dotnet tools to PATH
@@ -88,10 +81,11 @@ jobs:
             --startup-project ./VersopayBackend/VersopayBackend.csproj `
             --context AppDbContext
 
-      # --- DEPLOY (usa o publish baixado) ---
+      # --- DEPLOY (via publish profile) ---
       - name: Deploy to Azure Web App (DEV)
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'api-versopay-dev2'
           slot-name: 'Production'
           package: ./publish
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_DEV2 }}
