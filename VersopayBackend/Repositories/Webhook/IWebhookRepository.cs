@@ -1,16 +1,23 @@
-﻿using VersopayLibrary.Models;
+﻿// VersopayBackend.Repositories.IWebhookRepository
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using VersopayLibrary.Models;
 
-using webhook = VersopayLibrary.Models.Webhook;
-
-namespace VersopayBackend.Repositories.Webhook
+namespace VersopayBackend.Repositories
 {
     public interface IWebhookRepository
     {
-        IQueryable<webhook> QueryNoTracking();
-        Task<webhook?> FindByIdAsync(int id, CancellationToken cancellationToken);
-        Task<webhook?> GetByIdNoTrackingAsync(int id, CancellationToken cancellationToken);
-        Task AddAsync(webhook webHook, CancellationToken cancellationToken);
-        Task RemoveAsync(webhook webHook, CancellationToken cancellationToken);
-        Task SaveChangesAsync(CancellationToken cancellationToken);
+        IQueryable<Webhook> QueryNoTracking();
+
+        Task<Webhook?> FindByIdAsync(int id, CancellationToken ct);
+
+        Task<Webhook?> GetByIdNoTrackingAsync(int id, CancellationToken ct);
+
+        Task AddAsync(Webhook entity, CancellationToken ct);
+
+        Task RemoveAsync(Webhook entity, CancellationToken ct);
+
+        Task SaveChangesAsync(CancellationToken ct);
     }
 }

@@ -8,6 +8,7 @@
         public bool HasSecret { get; set; }
         public string[] Eventos { get; set; } = Array.Empty<string>();
         public int EventosMask { get; set; }
+        public int OwnerUserId { get; set; }
         public DateTime CriadoEmUtc { get; set; }
         public DateTime? AtualizadoEmUtc { get; set; }
     }

@@ -1,18 +1,19 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
-using VersopayBackend.Services.Webhook;
+using VersopayBackend.Services;
 using VersopayLibrary.Enums;
 
 namespace VersopayBackend.Controllers // <- padronize "Controllers", não "Controller"
 {
     [ApiController]
     [Route("api/webhooks")]
+    [Authorize]
     public class WebhooksController(
-        IWebhooksService webhooksService,              // CRUD + envio de testes (o que você já tinha)
-        IInboundWebhookService inboundWebhookService,  // processamento de callbacks dos provedores
-        ILogger<WebhooksController> logger
-    ) : ControllerBase
+       IWebhooksService webhooksService,
+       IInboundWebhookService inboundWebhookService, // totalmente qualificado (garante a Opção 1)
+       ILogger<WebhooksController> logger
+   ) : ControllerBase
     {
         // ==========================
         // OUTBOUND (o que você já tinha)
@@ -70,11 +71,13 @@ namespace VersopayBackend.Controllers // <- padronize "Controllers", não "Contr
         [HttpPost("providers/versell")]
         [AllowAnonymous]
         [Consumes("application/json")]
-        public async Task<IActionResult> InboundVersell([FromBody] VersellWebhookDto versellWebhookDto, CancellationToken cancellationToken)
+        public async Task<IActionResult> InboundVersell([FromBody] VersellWebhookDto dto, CancellationToken ct)
         {
-            var headers = Request.Headers.ToDictionary(header => header.Key, header => header.Value.ToString());
+            if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+            var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-            var status = await inboundWebhookService.HandleVersellAsync(versellWebhookDto, ip, headers, cancellationToken);
+            var status = await inboundWebhookService.HandleVersellAsync(dto, ip, headers, ct);
 
             return status switch
             {
@@ -90,11 +93,13 @@ namespace VersopayBackend.Controllers // <- padronize "Controllers", não "Contr
         [HttpPost("providers/vexy")]
         [AllowAnonymous]
         [Consumes("application/json")]
-        public async Task<IActionResult> InboundVexy([FromBody] VexyWebhookDto vexyWebhookDto, CancellationToken cancellationToken)
+        public async Task<IActionResult> InboundVexy([FromBody] VexyWebhookDto dto, CancellationToken ct)
         {
-            var headers = Request.Headers.ToDictionary(header => header.Key, header => header.Value.ToString());
+            if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+            var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-            var status = await inboundWebhookService.HandleVexyAsync(vexyWebhookDto, ip, headers, cancellationToken);
+            var status = await inboundWebhookService.HandleVexyAsync(dto, ip, headers, ct);
 
             return status switch
             {
