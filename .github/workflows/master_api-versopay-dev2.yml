@@ -2,11 +2,11 @@
 # Build & Deploy ASP.NET Core to Azure Web App (DEV2)
 # Branch: master
 # App Service: api-versopay-dev2
-# Requisitos de secrets:
+# Secrets necessários:
 # - AZUREAPPSERVICE_CLIENTID_C65A5CBEF697494D8CCA93C3C9D174B4
 # - AZUREAPPSERVICE_TENANTID_21694DD3A2154C4988CC215453AD9F62
 # - AZUREAPPSERVICE_SUBSCRIPTIONID_FA6A44D993B349BA83AFD9D4BA8A7360
-# - DEV_SQL_CONNECTION_STRING  (string de conexão do Azure SQL)
+# - DEV_SQL_CONNECTION_STRING
 # ==========================================================
 
 name: Build and deploy ASP.Net Core app to Azure Web App - api-versopay-dev2
@@ -32,7 +32,7 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      - name: Restore (Backend)
+      - name: Restore
         run: dotnet restore ./VersopayBackend/VersopayBackend.csproj
 
       - name: Build (Release)
@@ -55,14 +55,8 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-          path: ./publish
-
-      # Precisamos do código-fonte para rodar as migrations
-      - name: Checkout source (for EF)
+      # 1) Código-fonte para migrations
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Setup .NET 8 SDK
@@ -70,7 +64,7 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      # --- MIGRATIONS (DEV2) ---
+      # 2) EF Core migrations (antes do deploy)
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
 
@@ -88,17 +82,25 @@ jobs:
             --startup-project ./VersopayBackend/VersopayBackend.csproj `
             --context AppDbContext
 
-      # --- DEPLOY ---
-      - name: Login to Azure (OIDC)
+      # 3) Baixa o build publicado (depois do checkout, em pasta separada)
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: ./artifact
+
+      # 4) Login Azure (OIDC)
+      - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C65A5CBEF697494D8CCA93C3C9D174B4 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_21694DD3A2154C4988CC215453AD9F62 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FA6A44D993B349BA83AFD9D4BA8A7360 }}
 
+      # 5) Deploy do pacote publicado
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'api-versopay-dev2'
           slot-name: 'Production'
-          package: ./publish
+          package: ./artifact
