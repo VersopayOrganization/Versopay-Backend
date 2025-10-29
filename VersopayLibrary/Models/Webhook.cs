@@ -17,6 +17,9 @@ namespace VersopayLibrary.Models
 
         public bool Ativo { get; set; } = true;
 
+        public int OwnerUserId { get; set; }           // quem “possui” este webhook
+        public Usuario OwnerUser { get; set; } = default!;
+
         // usado p/ assinar payloads (HMAC). Armazene criptografado se quiser.
         [MaxLength(128)]
         public string? Secret { get; set; }

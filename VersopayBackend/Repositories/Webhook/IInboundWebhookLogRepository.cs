@@ -1,6 +1,6 @@
 ﻿using VersopayLibrary.Models;
 
-namespace VersopayBackend.Repositories.Webhook
+namespace VersopayBackend.Repositories
 {
     public interface IInboundWebhookLogRepository
     {

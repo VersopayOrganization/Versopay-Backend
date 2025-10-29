@@ -21,7 +21,7 @@ namespace VersopayDatabase.Data
         public DbSet<Extrato> Extratos => Set<Extrato>();
         public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
         public DbSet<Faturamento> Faturamentos => Set<Faturamento>();
-
+        public DbSet<ProviderCredential> ProviderCredentials => Set<ProviderCredential>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -203,11 +203,17 @@ namespace VersopayDatabase.Data
             webhook.Property(x => x.Ativo).HasDefaultValue(true);
             webhook.Property(x => x.Secret).HasMaxLength(128);
 
+            webhook.HasOne(x => x.OwnerUser)
+                   .WithMany()
+                   .HasForeignKey(x => x.OwnerUserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
             // converte enum flags para int
             webhook.Property(x => x.Eventos)
                    .HasConversion<int>()
                    .IsRequired();
 
+            webhook.HasIndex(x => new { x.OwnerUserId, x.Ativo });
             webhook.HasIndex(x => x.Ativo);
             webhook.HasIndex(x => x.Eventos);
 
@@ -338,6 +344,21 @@ namespace VersopayDatabase.Data
             faturamento.HasIndex(x => x.Cpf);
             faturamento.HasIndex(x => x.Cnpj);
             faturamento.HasIndex(x => new { x.Cpf, x.Cnpj, x.DataInicio, x.DataFim });
+
+            var providerCredential = modelBuilder.Entity<ProviderCredential>();
+            providerCredential.HasKey(x => x.Id);
+            providerCredential.Property(x => x.ClientId).HasMaxLength(120).IsRequired();
+            providerCredential.Property(x => x.ClientSecret).HasMaxLength(160).IsRequired();
+            providerCredential.Property(x => x.AccessToken).HasMaxLength(600);
+
+            providerCredential.HasOne(x => x.OwnerUser)
+                .WithMany()
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 1 credencial por usuário por provedor
+            providerCredential.HasIndex(x => new { x.OwnerUserId, x.Provider }).IsUnique();
+
         }
     }
 }

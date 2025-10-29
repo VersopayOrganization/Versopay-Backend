@@ -1,7 +1,8 @@
-﻿using VersopayBackend.Dtos;
+﻿// IInboundWebhookService.cs
+using VersopayBackend.Dtos;
 using VersopayLibrary.Enums;
 
-namespace VersopayBackend.Services.Webhook
+namespace VersopayBackend.Services
 {
     public interface IInboundWebhookService
     {

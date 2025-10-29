@@ -1,7 +1,7 @@
 ﻿// VersopayBackend/Services/Webhooks/IWebhooksService.cs
 using VersopayBackend.Dtos;
 
-namespace VersopayBackend.Services.Webhook
+namespace VersopayBackend.Services
 {
     public interface IWebhooksService
     {
