@@ -11,182 +11,142 @@ namespace VersopayDatabase.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "OwnerUserId",
-                table: "Webhooks",
-                type: "int",
-                nullable: false,
-                defaultValue: 0);
+            // WEBHOOKS.OwnerUserId
+            migrationBuilder.Sql(@"
+            IF COL_LENGTH('dbo.Webhooks','OwnerUserId') IS NULL
+                ALTER TABLE dbo.Webhooks ADD OwnerUserId int NOT NULL CONSTRAINT DF_Webhooks_OwnerUserId DEFAULT(0);
+            ");
 
-            migrationBuilder.AddColumn<string>(
-                name: "ExternalId",
-                table: "Transferencias",
-                type: "nvarchar(80)",
-                maxLength: 80,
-                nullable: true);
+            // TRANSFERENCIAS.ExternalId
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('dbo.Transferencias','ExternalId') IS NULL
+    ALTER TABLE dbo.Transferencias ADD ExternalId nvarchar(80) NULL;
+");
 
-            migrationBuilder.AddColumn<string>(
-                name: "GatewayTransactionId",
-                table: "Transferencias",
-                type: "nvarchar(80)",
-                maxLength: 80,
-                nullable: true);
+            // TRANSFERENCIAS.GatewayTransactionId
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('dbo.Transferencias','GatewayTransactionId') IS NULL
+    ALTER TABLE dbo.Transferencias ADD GatewayTransactionId nvarchar(80) NULL;
+");
 
-            migrationBuilder.AddColumn<string>(
-                name: "ExternalId",
-                table: "Pedidos",
-                type: "nvarchar(80)",
-                maxLength: 80,
-                nullable: true);
+            // PEDIDOS.ExternalId
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('dbo.Pedidos','ExternalId') IS NULL
+    ALTER TABLE dbo.Pedidos ADD ExternalId nvarchar(80) NULL;
+");
 
-            migrationBuilder.AddColumn<string>(
-                name: "GatewayTransactionId",
-                table: "Pedidos",
-                type: "nvarchar(80)",
-                maxLength: 80,
-                nullable: true);
+            // PEDIDOS.GatewayTransactionId
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('dbo.Pedidos','GatewayTransactionId') IS NULL
+    ALTER TABLE dbo.Pedidos ADD GatewayTransactionId nvarchar(80) NULL;
+");
 
-            migrationBuilder.CreateTable(
-                name: "Faturamentos",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    CpfCnpj = table.Column<string>(type: "nvarchar(14)", maxLength: 14, nullable: false),
-                    DataInicio = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    DataFim = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    VendasTotais = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    VendasCartao = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    VendasBoleto = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    VendasPix = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    Reserva = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    VendasCanceladas = table.Column<int>(type: "int", nullable: false),
-                    DiasSemVendas = table.Column<int>(type: "int", nullable: false),
-                    AtualizadoEmUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Faturamentos", x => x.Id);
-                });
+            // Índices (só cria se não existir)
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Transferencias_ExternalId' AND object_id=OBJECT_ID('dbo.Transferencias'))
+    CREATE INDEX IX_Transferencias_ExternalId ON dbo.Transferencias(ExternalId);
+");
 
-            migrationBuilder.CreateTable(
-                name: "InboundWebhookLog",
-                columns: table => new
-                {
-                    Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Provedor = table.Column<int>(type: "int", nullable: false),
-                    Evento = table.Column<int>(type: "int", nullable: false),
-                    EventKey = table.Column<string>(type: "nvarchar(180)", maxLength: 180, nullable: false),
-                    TransactionId = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
-                    ExternalId = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
-                    RequestNumber = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
-                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
-                    TipoTransacao = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
-                    Valor = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
-                    Fee = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
-                    NetAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
-                    DebtorName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    DebtorDocument = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Ispb = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    NomeRecebedor = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    CpfRecebedor = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    DataEventoUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    SourceIp = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    HeadersJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PayloadJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ReceivedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ProcessedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ProcessingStatus = table.Column<int>(type: "int", nullable: false),
-                    ProcessingError = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PedidoId = table.Column<int>(type: "int", nullable: true),
-                    TransferenciaId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_InboundWebhookLog", x => x.Id);
-                });
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Transferencias_GatewayTransactionId' AND object_id=OBJECT_ID('dbo.Transferencias'))
+    CREATE INDEX IX_Transferencias_GatewayTransactionId ON dbo.Transferencias(GatewayTransactionId);
+");
 
-            migrationBuilder.CreateTable(
-                name: "ProviderCredentials",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    OwnerUserId = table.Column<int>(type: "int", nullable: false),
-                    Provider = table.Column<int>(type: "int", nullable: false),
-                    ClientId = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
-                    ClientSecret = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
-                    AccessToken = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: true),
-                    AccessTokenExpiresUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CriadoEmUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    AtualizadoEmUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ProviderCredentials", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ProviderCredentials_Usuarios_OwnerUserId",
-                        column: x => x.OwnerUserId,
-                        principalTable: "Usuarios",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Pedidos_ExternalId' AND object_id=OBJECT_ID('dbo.Pedidos'))
+    CREATE INDEX IX_Pedidos_ExternalId ON dbo.Pedidos(ExternalId);
+");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Webhooks_OwnerUserId_Ativo",
-                table: "Webhooks",
-                columns: new[] { "OwnerUserId", "Ativo" });
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Pedidos_GatewayTransactionId' AND object_id=OBJECT_ID('dbo.Pedidos'))
+    CREATE INDEX IX_Pedidos_GatewayTransactionId ON dbo.Pedidos(GatewayTransactionId);
+");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Transferencias_ExternalId",
-                table: "Transferencias",
-                column: "ExternalId");
+            // Tabelas (só cria se não existir)
+            migrationBuilder.Sql(@"
+IF OBJECT_ID('dbo.Faturamentos','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Faturamentos(
+        Id int IDENTITY(1,1) NOT NULL CONSTRAINT PK_Faturamentos PRIMARY KEY,
+        CpfCnpj nvarchar(14) NOT NULL,
+        DataInicio datetime2 NOT NULL,
+        DataFim datetime2 NOT NULL,
+        VendasTotais decimal(18,2) NOT NULL,
+        VendasCartao decimal(18,2) NOT NULL,
+        VendasBoleto decimal(18,2) NOT NULL,
+        VendasPix decimal(18,2) NOT NULL,
+        Reserva decimal(18,2) NOT NULL,
+        VendasCanceladas int NOT NULL,
+        DiasSemVendas int NOT NULL,
+        AtualizadoEmUtc datetime2 NOT NULL
+    );
+    CREATE INDEX IX_Faturamentos_CpfCnpj ON dbo.Faturamentos(CpfCnpj);
+    CREATE INDEX IX_Faturamentos_CpfCnpj_DataInicio_DataFim ON dbo.Faturamentos(CpfCnpj, DataInicio, DataFim);
+END
+");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Transferencias_GatewayTransactionId",
-                table: "Transferencias",
-                column: "GatewayTransactionId");
+            migrationBuilder.Sql(@"
+IF OBJECT_ID('dbo.InboundWebhookLog','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.InboundWebhookLog(
+        Id bigint IDENTITY(1,1) NOT NULL CONSTRAINT PK_InboundWebhookLog PRIMARY KEY,
+        Provedor int NOT NULL,
+        Evento int NOT NULL,
+        EventKey nvarchar(180) NOT NULL,
+        TransactionId nvarchar(80) NULL,
+        ExternalId nvarchar(80) NULL,
+        RequestNumber nvarchar(80) NULL,
+        Status nvarchar(40) NULL,
+        TipoTransacao nvarchar(20) NULL,
+        Valor decimal(18,2) NULL,
+        Fee decimal(18,2) NULL,
+        NetAmount decimal(18,2) NULL,
+        DebtorName nvarchar(max) NULL,
+        DebtorDocument nvarchar(max) NULL,
+        Ispb nvarchar(max) NULL,
+        NomeRecebedor nvarchar(max) NULL,
+        CpfRecebedor nvarchar(max) NULL,
+        DataEventoUtc datetime2 NULL,
+        SourceIp nvarchar(max) NOT NULL,
+        HeadersJson nvarchar(max) NOT NULL,
+        PayloadJson nvarchar(max) NOT NULL,
+        ReceivedAtUtc datetime2 NOT NULL,
+        ProcessedAtUtc datetime2 NULL,
+        ProcessingStatus int NOT NULL,
+        ProcessingError nvarchar(max) NULL,
+        PedidoId int NULL,
+        TransferenciaId int NULL
+    );
+    CREATE UNIQUE INDEX IX_InboundWebhookLog_EventKey ON dbo.InboundWebhookLog(EventKey);
+END
+");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Pedidos_ExternalId",
-                table: "Pedidos",
-                column: "ExternalId");
+            migrationBuilder.Sql(@"
+IF OBJECT_ID('dbo.ProviderCredentials','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ProviderCredentials(
+        Id int IDENTITY(1,1) NOT NULL CONSTRAINT PK_ProviderCredentials PRIMARY KEY,
+        OwnerUserId int NOT NULL,
+        Provider int NOT NULL,
+        ClientId nvarchar(120) NOT NULL,
+        ClientSecret nvarchar(160) NOT NULL,
+        AccessToken nvarchar(600) NULL,
+        AccessTokenExpiresUtc datetime2 NULL,
+        CriadoEmUtc datetime2 NOT NULL,
+        AtualizadoEmUtc datetime2 NULL
+    );
+    CREATE UNIQUE INDEX IX_ProviderCredentials_OwnerUserId_Provider ON dbo.ProviderCredentials(OwnerUserId, Provider);
+END
+");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Pedidos_GatewayTransactionId",
-                table: "Pedidos",
-                column: "GatewayTransactionId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Faturamentos_CpfCnpj",
-                table: "Faturamentos",
-                column: "CpfCnpj");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Faturamentos_CpfCnpj_DataInicio_DataFim",
-                table: "Faturamentos",
-                columns: new[] { "CpfCnpj", "DataInicio", "DataFim" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InboundWebhookLog_EventKey",
-                table: "InboundWebhookLog",
-                column: "EventKey",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ProviderCredentials_OwnerUserId_Provider",
-                table: "ProviderCredentials",
-                columns: new[] { "OwnerUserId", "Provider" },
-                unique: true);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Webhooks_Usuarios_OwnerUserId",
-                table: "Webhooks",
-                column: "OwnerUserId",
-                principalTable: "Usuarios",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+            // FK (só cria se não existir)
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_Webhooks_Usuarios_OwnerUserId')
+BEGIN
+    ALTER TABLE dbo.Webhooks WITH CHECK
+    ADD CONSTRAINT FK_Webhooks_Usuarios_OwnerUserId FOREIGN KEY(OwnerUserId) REFERENCES dbo.Usuarios(Id);
+END
+");
         }
 
         /// <inheritdoc />
