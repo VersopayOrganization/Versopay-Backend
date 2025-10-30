@@ -1,28 +1,22 @@
-# ==========================================================
-# 🚀 Build & Deploy API (DEV) via Publish Profile + EF Migrations
-# App Service: api-versopay-dev2 | Branch: develop
-# Secrets exigidos:
-# - AZURE_WEBAPP_PUBLISH_PROFILE_DEV2 (XML do publish profile)
-# - DEV_SQL_CONNECTION_STRING         (connection string do Azure SQL)
-# ==========================================================
-
-name: Build and deploy DEV API to Azure Web App - api-versopay-dev2 (PublishProfile)
+name: Build and deploy ASP.Net Core app to Azure Web App - api-versopay-dev2
 
 on:
   push:
     branches:
-      - develop
+      - master
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout source code
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up .NET 8 SDK
+      - name: Setup .NET 8 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
@@ -46,24 +40,20 @@ jobs:
     runs-on: windows-latest
     needs: build
     permissions:
+      id-token: write
       contents: read
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-          path: ./publish
-
-      - name: Checkout source code (for EF)
+      # 1) Código-fonte para migrations
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up .NET 8 SDK
+      - name: Setup .NET 8 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
 
-      # --- MIGRAÇÕES (DEV) ---
+      # 2) EF Core migrations (antes do deploy)
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
 
@@ -71,7 +61,7 @@ jobs:
         shell: pwsh
         run: echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
-      - name: Run EF Core Migrations (DEV)
+      - name: Run EF Core Migrations
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.DEV_SQL_CONNECTION_STRING }}
           ASPNETCORE_ENVIRONMENT: Development
@@ -81,11 +71,27 @@ jobs:
             --startup-project ./VersopayBackend/VersopayBackend.csproj `
             --context AppDbContext
 
-      # --- DEPLOY (via publish profile) ---
-      - name: Deploy to Azure Web App (DEV)
+      # 3) Baixa o build publicado (depois do checkout, em pasta separada)
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: ./artifact
+      
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C65A5CBEF697494D8CCA93C3C9D174B4 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_21694DD3A2154C4988CC215453AD9F62 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FA6A44D993B349BA83AFD9D4BA8A7360 }}
+
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D62FADCD9F5547BAAE0703EE096799B9 }}
+
+      # 5) Deploy do pacote publicado
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'api-versopay-dev2'
           slot-name: 'Production'
-          package: ./publish
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_DEV2 }}
+          package: ./artifact
