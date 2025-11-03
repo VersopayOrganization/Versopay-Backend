@@ -85,6 +85,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("CorsDev", p =>
         p.WithOrigins(
             // DEV (Angular)
+            "https://www.versopay.com.br", "http://www.versopay.com.br",
             "http://localhost:4200", "https://localhost:4200",
             "http://127.0.0.1:4200", "https://127.0.0.1:4200",
             "http://localhost:4000", "https://localhost:4000",
