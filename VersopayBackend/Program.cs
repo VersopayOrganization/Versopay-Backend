@@ -19,9 +19,6 @@ using VersopayBackend.Services.Taxas;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
-// ------------------------------
-// Builder
-// ------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
 // ------------------------------
@@ -78,23 +75,27 @@ builder.Services.AddControllers().AddJsonOptions(o =>
 });
 
 // ------------------------------
-// CORS (somente DEV)
+// CORS (DEV e PROD)
 // ------------------------------
+const string CorsDefault = "CorsDefault";
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("CorsDev", p =>
-        p.WithOrigins(
-            // DEV (Angular)
-            "https://www.versopay.com.br", "http://www.versopay.com.br",
+    options.AddPolicy(CorsDefault, p =>
+        p
+        .WithOrigins(
+            // PRODUÇÃO
+            "https://versopay.com.br",
+            "https://www.versopay.com.br",
+            // DEV (local)
             "http://localhost:4200", "https://localhost:4200",
             "http://127.0.0.1:4200", "https://127.0.0.1:4200",
-            "http://localhost:4000", "https://localhost:4000",
-            "https://kind-stone-0967bd30f.3.azurestaticapps.net"
-        // "https://app.seu-front.com"
+            "http://localhost:4000", "https://localhost:4000"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials()   // necessário para cookies
+        // Deixe AllowCredentials apenas se você realmente precisa enviar cookies/autenticação por cookie.
+        .AllowCredentials()
     );
 });
 
@@ -208,21 +209,12 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("CorsDev");
-}
+// >>> CORS deve vir ANTES de Auth/Authorization e valer SEMPRE
+app.UseCors(CorsDefault);
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapControllers().RequireCors("CorsDev");
-}
-else
-{
-    app.MapControllers();
-}
+app.MapControllers();
 
 app.Run();
