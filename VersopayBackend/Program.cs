@@ -10,12 +10,14 @@ using VersopayBackend.Common;
 using VersopayBackend.Options;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
+using VersopayBackend.Repositories.Vexy;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
 using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
 using VersopayBackend.Services.Taxas;
+using VersopayBackend.Services.Vexy;
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
 
@@ -43,6 +45,12 @@ builder.Services.Configure<TaxasOptions>(builder.Configuration.GetSection("Taxas
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
 
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    // se quiser receber payloads grandes em webhooks
+    o.MultipartBodyLengthLimit = 50_000_000;
+});
+
 // ------------------------------
 // AuthN / AuthZ (JWT)
 // ------------------------------
@@ -65,6 +73,8 @@ builder.Services
 
         JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
     });
+
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAuthorization();
 
@@ -103,6 +113,13 @@ builder.Services.AddCors(options =>
 builder.Services.AddHttpClient("Vexy", http =>
 {
     var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexypayments.com";
+    http.BaseAddress = new Uri(baseUrl);
+    http.Timeout = TimeSpan.FromSeconds(60);
+});
+
+builder.Services.AddHttpClient("VexyBank", http =>
+{
+    var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexybank.com";
     http.BaseAddress = new Uri(baseUrl);
     http.Timeout = TimeSpan.FromSeconds(60);
 });
@@ -157,6 +174,9 @@ builder.Services.AddScoped<IUsuarioAutenticadoService, UsuarioAutenticadoService
 
 builder.Services.AddScoped<IVexyService, VexyService>();
 builder.Services.AddScoped<IVexyClient, VexyClient>();
+
+builder.Services.AddScoped<IVexyBankClient, VexyBankClient>();
+builder.Services.AddScoped<IVexyBankService, VexyBankService>();
 
 // Serviços utilitários (singleton)
 builder.Services.AddSingleton<IClock, SystemClock>();

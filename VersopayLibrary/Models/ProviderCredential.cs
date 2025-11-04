@@ -19,6 +19,12 @@ public class ProviderCredential
     [Required, MaxLength(120)] public string ClientId { get; set; } = default!;
     [Required, MaxLength(160)] public string ClientSecret { get; set; } = default!;
 
+    // NOVO: chaves da Vexy Bank
+    public string? ApiKey { get; set; }       // pk_live_* ou pk_test_*
+    public string? ApiSecret { get; set; }    // sk_live_* ou sk_test_*
+
+    public string? WebhookSignatureSecret { get; set; }
+
     // Só a Vexy usa token de sessão (JWT); Versell usa headers fixos por request
     [MaxLength(600)] public string? AccessToken { get; set; }
     public DateTime? AccessTokenExpiresUtc { get; set; }

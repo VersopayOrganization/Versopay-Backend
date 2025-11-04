@@ -5,7 +5,7 @@ using System.Text.Json;
 using VersopayLibrary.Enums;
 using VersopayBackend.Repositories;
 
-namespace VersopayBackend.Repositories
+namespace VersopayBackend.Repositories.Vexy
 {
     public sealed class VexyClient(
         IHttpClientFactory httpFactory,
