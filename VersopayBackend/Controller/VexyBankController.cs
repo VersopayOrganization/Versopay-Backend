@@ -24,6 +24,11 @@ public class VexyBankController(IVexyBankService service) : ControllerBase
     public Task<PixInCreateRespDto> CreateQrCode([FromBody] PixInCreateReqDto req, CancellationToken ct)
         => service.CreatePixInAsync(CurrentUserId(User), req, ct);
 
+    // NOVO: consultar depósito por id
+    [HttpGet("pix-in/{id}")]
+    public Task<PixInCreateRespDto> GetPixIn([FromRoute] string id, CancellationToken ct)
+        => service.GetPixInAsync(CurrentUserId(User), id, ct);
+
     [HttpPost("pix-out")]
     public Task<PixOutRespDto> PixOut([FromBody] PixOutReqDto req,
         [FromHeader(Name = "X-Idempotency-Key")] string idempotencyKey,

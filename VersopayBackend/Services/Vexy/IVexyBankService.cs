@@ -8,7 +8,10 @@ namespace VersopayBackend.Services.Vexy
         Task<PixInCreateRespDto> CreatePixInAsync(int ownerUserId, PixInCreateReqDto req, CancellationToken ct);
         Task<PixOutRespDto> SendPixOutAsync(int ownerUserId, PixOutReqDto req, string idempotencyKey, CancellationToken ct);
 
-        // Webhook ingest (multi-tenant)
+        // NOVO: consultar Pix In por id
+        Task<PixInCreateRespDto> GetPixInAsync(int ownerUserId, string id, CancellationToken ct);
+
+        Task<(bool ok, string? error)> ValidateCredentialsAsync(int ownerUserId, CancellationToken ct);
         Task HandleWebhookAsync(int ownerUserId, VexyWebhookEnvelope payload,
             string? sourceIp, IDictionary<string, string>? headers, CancellationToken ct);
     }

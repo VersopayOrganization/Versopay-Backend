@@ -16,8 +16,8 @@ public class ProviderCredential
 
     [Required] public PaymentProvider Provider { get; set; }
 
-    [Required, MaxLength(120)] public string ClientId { get; set; } = default!;
-    [Required, MaxLength(160)] public string ClientSecret { get; set; } = default!;
+    [Required, MaxLength(200)] public string ClientId { get; set; } = default!;
+    [Required, MaxLength(512)] public string ClientSecret { get; set; } = default!;
 
     // NOVO: chaves da Vexy Bank
     public string? ApiKey { get; set; }       // pk_live_* ou pk_test_*

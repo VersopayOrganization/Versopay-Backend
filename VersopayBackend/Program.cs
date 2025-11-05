@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Options;
@@ -18,12 +20,11 @@ using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
 using VersopayBackend.Services.Taxas;
 using VersopayBackend.Services.Vexy;
+
 using VersopayDatabase.Data;
 using VersopayLibrary.Models;
+using VersopayLibrary.Enums;
 
-// ------------------------------
-// Builder
-// ------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
 // ------------------------------
@@ -32,7 +33,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        sql => sql.MigrationsAssembly("VersopayDatabase")));
+        sql => sql.MigrationsAssembly("VersopayDatabase"))
+);
 
 // ------------------------------
 // Options (appsettings / env)
@@ -42,18 +44,21 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"
 builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
 builder.Services.Configure<TaxasOptions>(builder.Configuration.GetSection("Taxas"));
 
-var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
-    ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
-
-builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+// aceite de payloads grandes (webhooks)
+builder.Services.Configure<FormOptions>(o =>
 {
-    // se quiser receber payloads grandes em webhooks
     o.MultipartBodyLengthLimit = 50_000_000;
 });
+
+// validação mínima de JwtOptions
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
+          ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
 
 // ------------------------------
 // AuthN / AuthZ (JWT)
 // ------------------------------
+JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -70,16 +75,13 @@ builder.Services
             ClockSkew = TimeSpan.FromMinutes(1),
             NameClaimType = JwtRegisteredClaimNames.Sub
         };
-
-        JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
     });
 
+builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddAuthorization();
-
 // ------------------------------
-// JSON
+// Controllers / JSON
 // ------------------------------
 builder.Services.AddControllers().AddJsonOptions(o =>
 {
@@ -94,32 +96,37 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsDev", p =>
         p.WithOrigins(
-            // DEV (Angular)
             "http://localhost:4200", "https://localhost:4200",
             "http://127.0.0.1:4200", "https://127.0.0.1:4200",
             "http://localhost:4000", "https://localhost:4000",
+            // Azure Static Web Apps do teu front
             "https://kind-stone-0967bd30f.3.azurestaticapps.net"
-        // "https://app.seu-front.com"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials()   // necessário para cookies
+        .AllowCredentials()
     );
 });
 
 // ------------------------------
-// HttpClient Vexy (Typed Client)
+// HttpClient(s) Vexy
 // ------------------------------
+// BaseUrl pode ser definido no appsettings:
+// "Providers": { "Vexy": { "BaseUrl": "https://api.sandbox.vexybank.com" },
+//                "VexyBank": { "BaseUrl": "https://api.sandbox.vexybank.com" } }
 builder.Services.AddHttpClient("Vexy", http =>
 {
-    var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexypayments.com";
+    var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"]
+                  ?? "https://api.sandbox.vexybank.com";
     http.BaseAddress = new Uri(baseUrl);
     http.Timeout = TimeSpan.FromSeconds(60);
 });
 
 builder.Services.AddHttpClient("VexyBank", http =>
 {
-    var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"] ?? "https://api.vexybank.com";
+    var baseUrl = builder.Configuration["Providers:VexyBank:BaseUrl"]
+                  ?? builder.Configuration["Providers:Vexy:BaseUrl"]
+                  ?? "https://api.sandbox.vexybank.com";
     http.BaseAddress = new Uri(baseUrl);
     http.Timeout = TimeSpan.FromSeconds(60);
 });
@@ -127,8 +134,6 @@ builder.Services.AddHttpClient("VexyBank", http =>
 // ------------------------------
 // DI – Repositórios / Serviços
 // ------------------------------
-builder.Services.AddHttpContextAccessor();
-
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 
@@ -155,6 +160,7 @@ builder.Services.AddScoped<IAntecipacoesService, AntecipacoesService>();
 
 builder.Services.AddScoped<IWebhookRepository, WebhookRepository>();
 builder.Services.AddScoped<IWebhooksService, WebhooksService>();
+
 builder.Services.AddScoped<IInboundWebhookLogRepository, InboundWebhookLogRepository>();
 builder.Services.AddScoped<IPedidoMatchRepository, PedidoMatchRepository>();
 builder.Services.AddScoped<ITransferenciaMatchRepository, TransferenciaMatchRepository>();
@@ -172,13 +178,14 @@ builder.Services.AddScoped<IProviderCredentialRepository, ProviderCredentialRepo
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioAutenticadoService, UsuarioAutenticadoService>();
 
-builder.Services.AddScoped<IVexyService, VexyService>();
+// Vexy API(s)
 builder.Services.AddScoped<IVexyClient, VexyClient>();
+builder.Services.AddScoped<IVexyService, VexyService>();
 
 builder.Services.AddScoped<IVexyBankClient, VexyBankClient>();
 builder.Services.AddScoped<IVexyBankService, VexyBankService>();
 
-// Serviços utilitários (singleton)
+// utilitários (singleton)
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
@@ -192,6 +199,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "Versopay API", Version = "v1" });
+
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT no header Authorization (Bearer {token})",
@@ -201,9 +209,12 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT"
     });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement {
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
         {
-            new OpenApiSecurityScheme {
+            new OpenApiSecurityScheme
+            {
                 Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
@@ -236,12 +247,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
-{
     app.MapControllers().RequireCors("CorsDev");
-}
 else
-{
     app.MapControllers();
-}
 
 app.Run();

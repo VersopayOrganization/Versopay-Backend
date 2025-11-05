@@ -28,8 +28,16 @@ namespace VersopayBackend.Repositories
             {
                 existing.ClientId = cred.ClientId;
                 existing.ClientSecret = cred.ClientSecret;
+
+                // >>> Importante para VexyBank:
+                existing.ApiKey = cred.ApiKey;
+                existing.ApiSecret = cred.ApiSecret;
+                existing.WebhookSignatureSecret = cred.WebhookSignatureSecret;
+
+                // token cache
                 existing.AccessToken = cred.AccessToken;
                 existing.AccessTokenExpiresUtc = cred.AccessTokenExpiresUtc;
+
                 existing.AtualizadoEmUtc = DateTime.UtcNow;
             }
         }
@@ -39,9 +47,7 @@ namespace VersopayBackend.Repositories
                     .Where(c => c.Provider == PaymentProvider.Vexy && c.WebhookSignatureSecret != null && c.WebhookSignatureSecret != "")
                     .Select(c => c.WebhookSignatureSecret!)
                     .ToListAsync(ct);
-        
 
         public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
     }
-
 }

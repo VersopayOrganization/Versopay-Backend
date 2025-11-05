@@ -1,10 +1,18 @@
-﻿namespace VersopayBackend.Services.Vexy
+﻿using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace VersopayBackend.Repositories
 {
     public interface IVexyBankClient
     {
-        Task<string> GetTokenAsync(int ownerUserId, CancellationToken ct);
+        // Garante que existe um JWT válido em cache e devolve a string do token
+        Task<string> EnsureJwtAsync(int ownerUserId, CancellationToken ct);
+
+        // Chamada GET autenticada (Bearer)
         Task<T> GetAsync<T>(int ownerUserId, string path, CancellationToken ct);
-        Task<TResp> PostAsync<TReq, TResp>(int ownerUserId, string path, TReq body,
-            CancellationToken ct, IDictionary<string, string>? extraHeaders = null);
+
+        // Chamada POST autenticada (Bearer)
+        Task<TResp> PostAsync<TReq, TResp>(int ownerUserId, string path, TReq body, CancellationToken ct);
     }
 }
