@@ -26,7 +26,7 @@ public class VexyBankController(IVexyBankService service) : ControllerBase
 
     // NOVO: consultar depósito por id
     [HttpGet("pix-in/{id}")]
-    public Task<PixInCreateRespDto> GetPixIn([FromRoute] string id, CancellationToken ct)
+    public Task<PixInStatusRespDto> GetPixIn([FromRoute] string id, CancellationToken ct)
         => service.GetPixInAsync(CurrentUserId(User), id, ct);
 
     [HttpPost("pix-out")]

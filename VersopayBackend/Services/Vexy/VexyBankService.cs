@@ -99,47 +99,6 @@ namespace VersopayBackend.Services.Vexy
             return resp;
         }
 
-        public async Task<PixInCreateRespDto> GetPixInAsync(int ownerUserId, string id, CancellationToken ct)
-        {
-            // garante credenciais e JWT
-            _ = await _credRepo.GetAsync(ownerUserId, PaymentProvider.Vexy, ct)
-                ?? throw new InvalidOperationException("Credenciais Vexy não configuradas para este usuário.");
-            // EnsureJwtAsync é chamado dentro do client nos GET/POST.
-
-            // Candidatos de rota mais comuns encontrados em gateways Pix:
-            var candidates = new[]
-            {
-        $"/api/v1/pix/in/{id}",
-        $"/api/v1/pix/in/qrcode/{id}",
-        $"/api/v1/pix/in/{id}/qrcode"
-    };
-
-            Exception? lastEx = null;
-
-            foreach (var path in candidates)
-            {
-                try
-                {
-                    // Se a rota não existir, seu VexyBankClient deve lançar InvalidOperationException
-                    // com 404 — nós capturamos e tentamos o próximo candidato.
-                    var resp = await _client.GetAsync<PixInCreateRespDto>(ownerUserId, path, ct);
-                    if (resp is not null) return resp;
-                }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("404 Not Found", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogWarning("VexyBank GET {Path} retornou 404, tentando próximo candidato…", path);
-                    lastEx = ex;
-                    continue;
-                }
-            }
-
-            // Se nenhum funcionou, devolve o último erro para depuração rápida.
-            throw new InvalidOperationException(
-                $"Nenhuma rota de consulta PixIn funcionou para id '{id}'. " +
-                $"Tente conferir a documentação do provedor e ajuste o path no serviço.",
-                lastEx
-            );
-        }
 
         public async Task HandleWebhookAsync(
             int ownerUserId,
@@ -174,6 +133,30 @@ namespace VersopayBackend.Services.Vexy
             await _inboundLogRepo.SaveChangesAsync(ct);
 
             // aqui você faz os efeitos de domínio (aprovar pedido, atualizar extrato, etc.)
+        }
+
+        public async Task<PixInStatusRespDto> GetPixInAsync(int ownerUserId, string id, CancellationToken ct)
+        {
+            // Garante credenciais e obtém/renova JWT internamente via client
+            _ = await _credRepo.GetAsync(ownerUserId, PaymentProvider.Vexy, ct)
+                ?? throw new InvalidOperationException("Credenciais Vexy não configuradas para este usuário.");
+
+            // A doc manda consultar /api/v1/transactions/{id}
+            var path = $"/api/v1/transactions/{id}";
+
+            try
+            {
+                var resp = await _client.GetAsync<PixInStatusRespDto>(ownerUserId, path, ct);
+                return resp ?? throw new InvalidOperationException("Resposta vazia ao consultar transação PIX IN.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Se seu client padroniza a mensagem de 404, preserve a dica:
+                throw new InvalidOperationException(
+                    $"Nenhuma rota de consulta PixIn funcionou para id '{id}'. " +
+                    "Use /api/v1/transactions/{id} conforme documentação.",
+                    ex);
+            }
         }
     }
 }
