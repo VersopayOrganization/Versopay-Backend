@@ -1,5 +1,4 @@
-﻿using VersopayBackend.Dtos;
-using VersopayBackend.Dtos.VexyBank;
+﻿using VersopayBackend.Dtos.VexyBank;
 
 namespace VersopayBackend.Services.Vexy
 {

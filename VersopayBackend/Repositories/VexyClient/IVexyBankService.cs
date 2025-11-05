@@ -11,7 +11,7 @@ namespace VersopayBackend.Repositories.VexyClient
         Task<PixInStatusRespDto> GetPixInAsync(int ownerUserId, string id, CancellationToken ct);
 
         // Webhook ingest (multi-tenant)
-        Task HandleWebhookAsync(int ownerUserId, VexyWebhookEnvelope payload,
+        Task HandleWebhookAsync(int ownerUserId, Dtos.VexyBank.VexyWebhookEnvelope payload,
             string? sourceIp, IDictionary<string, string>? headers, CancellationToken ct);
     }
 }

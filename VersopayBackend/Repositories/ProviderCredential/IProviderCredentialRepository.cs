@@ -9,6 +9,8 @@ namespace VersopayBackend.Repositories
         Task AddOrUpdateAsync(ProviderCredential cred, CancellationToken ct);
         Task SaveChangesAsync(CancellationToken ct);
         Task<List<string>> GetAllVexyWebhookSecretsAsync(CancellationToken ct);
+        // >>> NOVO:
+        Task<IEnumerable<string>> GetVexyWebhookSecretsByOwnerAsync(int ownerUserId, CancellationToken ct);
 
     }
 

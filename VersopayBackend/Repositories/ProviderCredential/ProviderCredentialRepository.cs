@@ -48,6 +48,16 @@ namespace VersopayBackend.Repositories
                     .Select(c => c.WebhookSignatureSecret!)
                     .ToListAsync(ct);
 
+        // >>> NOVO:
+        public async Task<IEnumerable<string>> GetVexyWebhookSecretsByOwnerAsync(int ownerUserId, CancellationToken ct) =>
+            await db.Set<ProviderCredential>()
+                    .Where(c => c.OwnerUserId == ownerUserId &&
+                                c.Provider == PaymentProvider.Vexy &&
+                                c.WebhookSignatureSecret != null &&
+                                c.WebhookSignatureSecret != "")
+                    .Select(c => c.WebhookSignatureSecret!)
+                    .ToListAsync(ct);
+
         public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
     }
 }

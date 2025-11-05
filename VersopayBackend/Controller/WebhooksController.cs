@@ -1,12 +1,15 @@
 ﻿// VersopayBackend/Controllers/WebhooksController.cs
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
+using System.Text.Json;
 using VersopayBackend.Dtos;
+using VersopayBackend.Dtos.VexyBank;
+using VersopayBackend.Repositories;
 using VersopayBackend.Services;
+using VersopayBackend.Services.Vexy;
 using VersopayBackend.Utils;
 using VersopayLibrary.Enums;
-using VersopayBackend.Repositories;
 
 namespace VersopayBackend.Controllers
 {
@@ -221,6 +224,89 @@ namespace VersopayBackend.Controllers
                 ProcessingStatus.InvalidAuth => Unauthorized(),
                 _ => StatusCode(500, new { ok = false })
             };
+        }
+
+        /// <summary>
+        /// VexyBank Webhook (API nova) – PIX IN / PIX OUT
+        /// POST /api/webhooks/v1/vexy/{ownerUserId}/{channel}
+        ///   channel: "pix-in" | "pix-out"
+        /// Verificação por HMAC no header "Vexy-Signature" (opcional, mas recomendado).
+        /// </summary>
+        [HttpPost("v1/vexy/{ownerUserId:int}/{channel}")]
+        [AllowAnonymous]
+        [Consumes("application/json")]
+        public async Task<IActionResult> InboundVexyV1(
+            int ownerUserId,
+            string channel,
+            [FromServices] IVexyBankService vexyService,
+            CancellationToken ct)
+        {
+            // 1) raw body
+            HttpContext.Request.EnableBuffering();
+            string rawBody;
+            using (var reader = new StreamReader(Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true))
+            {
+                rawBody = await reader.ReadToEndAsync();
+                Request.Body.Position = 0;
+            }
+
+            // 2) headers e ip
+            var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
+            var sourceIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            // 3) Verificação da assinatura (se houver secret cadastrado)
+            bool signatureOk = true; // default "permissivo" para ambientes de dev
+            try
+            {
+                var signatureHeader =
+                    Request.Headers["Vexy-Signature"].FirstOrDefault()
+                    ?? Request.Headers["vexy-signature"].FirstOrDefault();
+
+                var secrets = await _providerCredRepo.GetVexyWebhookSecretsByOwnerAsync(ownerUserId, ct);
+                if (secrets is not null && secrets.Any(s => !string.IsNullOrWhiteSpace(s)))
+                {
+                    signatureOk = false;
+                    foreach (var secret in secrets)
+                    {
+                        if (string.IsNullOrWhiteSpace(secret)) continue;
+                        if (VexySignatureVerifier.Verify(signatureHeader, rawBody, secret, timestampToleranceSeconds: 300))
+                        {
+                            signatureOk = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao validar assinatura da Vexy para Owner={Owner}", ownerUserId);
+                // mantenha permissivo em DEV; em PROD pode retornar 401.
+            }
+
+            // 4) Desserializa envelope novo
+            VexyWebhookEnvelope? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<VexyWebhookEnvelope>(
+                    rawBody,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Payload Vexy inválido (novo formato).");
+                return BadRequest("JSON inválido.");
+            }
+
+            if (payload is null) return BadRequest("Payload ausente.");
+
+            // 5) (Opcional) Exigir assinatura válida em PROD:
+            // if (!signatureOk) return Unauthorized();
+
+            // 6) Delegar para o serviço especializado (já faz dedupe e logs)
+            await vexyService.HandleWebhookAsync(ownerUserId, payload, sourceIp, headers, ct);
+
+            return Ok(new { ok = true, verified = signatureOk });
         }
     }
 }
