@@ -4,13 +4,10 @@ namespace VersopayBackend.Services
 {
     public interface IPedidosService
     {
-        Task<PedidoDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken);
-        Task<PedidosResponseDto> GetAllAsync(
-            string? status, int? vendedorId, string? metodo,
-            DateTime? dataDe, DateTime? dataAte, int page, int pageSize,
-            CancellationToken cancellationToken);
-        Task<PedidoDto?> GetByIdAsync(int id, CancellationToken cancellationToken);
-        Task<bool> UpdateStatusAsync(int id, PedidoStatusUpdateDto pedidoStatusUpdatedto, CancellationToken cancellationToken);
-        Task<bool> MarcarComoPagoAsync(int id, CancellationToken cancellationToken);
+        Task<PedidoDto> CreateAsync(PedidoCreateDto dto, CancellationToken ct);
+        Task<PedidosResponseDto> GetAllAsync(string? status, int? vendedorId, string? metodo, DateTime? dataInicio, DateTime? dataFim, int page, int pageSize, CancellationToken ct);
+        Task<PedidoDto?> GetByIdAsync(int id, CancellationToken ct);
+        Task<bool> UpdateStatusAsync(int id, PedidoStatusUpdateDto dto, CancellationToken ct);
+        Task<bool> MarcarComoPagoAsync(int id, CancellationToken ct);
     }
 }

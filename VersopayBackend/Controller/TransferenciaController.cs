@@ -4,15 +4,17 @@ using VersopayBackend.Dtos;
 using VersopayBackend.Services;
 using VersopayLibrary.Enums;
 
-namespace VersopayBackend.Controller
+namespace VersopayBackend.Controllers
 {
     [ApiController]
     [Route("api/transferencias")]
-    public class TransferenciaController(ITransferenciasService transferenciaService) : ControllerBase
+    public class TransferenciaController : ControllerBase
     {
-        // Lista com filtros opcionais
+        private readonly ITransferenciasService _transferenciaService;
+        public TransferenciaController(ITransferenciasService transferenciaService) => _transferenciaService = transferenciaService;
+
         [HttpGet]
-        [Authorize] // ajuste conforme sua política
+        [Authorize]
         public async Task<ActionResult<IEnumerable<TransferenciaResponseDto>>> GetAll(
             [FromQuery] int? solicitanteId,
             [FromQuery] StatusTransferencia? status,
@@ -22,56 +24,53 @@ namespace VersopayBackend.Controller
             [FromQuery] int pageSize = 20,
             CancellationToken cancellationToken = default)
         {
-            var transferenciaResponseList = await transferenciaService.GetAllAsync(solicitanteId, status, dataInicio, dataFim, page, pageSize, cancellationToken);
-            return Ok(transferenciaResponseList);
+            var list = await _transferenciaService.GetAllAsync(solicitanteId, status, dataInicio, dataFim, page, pageSize, cancellationToken);
+            return Ok(list);
         }
 
         [HttpGet("{id:int}")]
         [Authorize]
         public async Task<ActionResult<TransferenciaResponseDto>> GetById(int id, CancellationToken cancellationToken)
         {
-            var transferenciaResponseDto = await transferenciaService.GetByIdAsync(id, cancellationToken);
-            return transferenciaResponseDto is null ? NotFound() : Ok(transferenciaResponseDto);
+            var dto = await _transferenciaService.GetByIdAsync(id, cancellationToken);
+            return dto is null ? NotFound() : Ok(dto);
         }
 
         [HttpPost]
-        [Authorize] // ou AllowAnonymous se será solicitado pelo próprio usuário logado
-        public async Task<ActionResult<TransferenciaResponseDto>> Create([FromBody] TransferenciaCreateDto transferenciaCreateDto, CancellationToken cancellationToken)
+        [Authorize]
+        public async Task<ActionResult<TransferenciaResponseDto>> Create([FromBody] TransferenciaCreateDto body, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
             try
             {
-                var transferenciaResponseDto = await transferenciaService.CreateAsync(transferenciaCreateDto, cancellationToken);
-                return CreatedAtAction(nameof(GetById), new { id = transferenciaResponseDto.Id }, transferenciaResponseDto);
+                var dto = await _transferenciaService.CreateAsync(body, cancellationToken);
+                return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
         }
 
-        // Atualização administrativa (status/aprovação/tipoEnvio/taxas etc)
         [HttpPut("{id:int}")]
         [Authorize] // role Admin?
-        public async Task<ActionResult<TransferenciaResponseDto>> AdminUpdate(int id, [FromBody] TransferenciaAdminUpdateDto transferenciaAdminUpdateDto, CancellationToken cancellationToken)
+        public async Task<ActionResult<TransferenciaResponseDto>> AdminUpdate(int id, [FromBody] TransferenciaAdminUpdateDto body, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
-            var transferenciaResponseDto = await transferenciaService.AdminUpdateAsync(id, transferenciaAdminUpdateDto, cancellationToken);
-            return transferenciaResponseDto is null ? NotFound() : Ok(transferenciaResponseDto);
+            var dto = await _transferenciaService.AdminUpdateAsync(id, body, cancellationToken);
+            return dto is null ? NotFound() : Ok(dto);
         }
 
-        // atalhos opcionais
         [HttpPost("{id:int}/cancelar")]
         [Authorize] // role Admin?
         public async Task<IActionResult> Cancelar(int id, CancellationToken cancellationToken)
         {
-            var ok = await transferenciaService.CancelarAsync(id, cancellationToken);
+            var ok = await _transferenciaService.CancelarAsync(id, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 
         [HttpPost("{id:int}/concluir")]
         [Authorize] // role Admin?
-        public async Task<IActionResult> Concluir(int id, [FromBody] ConcluirBody concluirBody, CancellationToken cancellationToken)
+        public async Task<IActionResult> Concluir(int id, [FromBody] ConcluirBody body, CancellationToken cancellationToken)
         {
-            var ok = await transferenciaService.ConcluirAsync(id, concluirBody.Taxa, concluirBody.ValorFinal, cancellationToken);
+            var ok = await _transferenciaService.ConcluirAsync(id, body.Taxa, body.ValorFinal, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 

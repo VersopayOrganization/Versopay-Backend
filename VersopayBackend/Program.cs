@@ -44,13 +44,12 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"
 builder.Services.Configure<BrandSettings>(builder.Configuration.GetSection("Brand"));
 builder.Services.Configure<TaxasOptions>(builder.Configuration.GetSection("Taxas"));
 
-// aceite de payloads grandes (webhooks)
+// aceitar payloads grandes (webhooks)
 builder.Services.Configure<FormOptions>(o =>
 {
     o.MultipartBodyLengthLimit = 50_000_000;
 });
 
-// validação mínima de JwtOptions
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
           ?? throw new InvalidOperationException("Faltou a seção Jwt no appsettings.");
 
@@ -77,6 +76,7 @@ builder.Services
         };
     });
 
+// NENHUMA fallback/global policy aqui
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
@@ -90,7 +90,7 @@ builder.Services.AddControllers().AddJsonOptions(o =>
 });
 
 // ------------------------------
-// CORS (somente DEV)
+// CORS (DEV)
 // ------------------------------
 builder.Services.AddCors(options =>
 {
@@ -99,7 +99,6 @@ builder.Services.AddCors(options =>
             "http://localhost:4200", "https://localhost:4200",
             "http://127.0.0.1:4200", "https://127.0.0.1:4200",
             "http://localhost:4000", "https://localhost:4000",
-            // Azure Static Web Apps do teu front
             "https://kind-stone-0967bd30f.3.azurestaticapps.net"
         )
         .AllowAnyHeader()
@@ -111,9 +110,6 @@ builder.Services.AddCors(options =>
 // ------------------------------
 // HttpClient(s) Vexy
 // ------------------------------
-// BaseUrl pode ser definido no appsettings:
-// "Providers": { "Vexy": { "BaseUrl": "https://api.sandbox.vexybank.com" },
-//                "VexyBank": { "BaseUrl": "https://api.sandbox.vexybank.com" } }
 builder.Services.AddHttpClient("Vexy", http =>
 {
     var baseUrl = builder.Configuration["Providers:Vexy:BaseUrl"]
@@ -124,12 +120,19 @@ builder.Services.AddHttpClient("Vexy", http =>
 
 builder.Services.AddHttpClient("VexyBank", http =>
 {
-    var baseUrl = builder.Configuration["Providers:VexyBank:BaseUrl"]
-                  ?? builder.Configuration["Providers:Vexy:BaseUrl"]
-                  ?? "https://api.sandbox.vexybank.com";
-    http.BaseAddress = new Uri(baseUrl);
-    http.Timeout = TimeSpan.FromSeconds(60);
-});
+    // Troque para a URL oficial da VexyBank em produção
+    http.BaseAddress = new Uri(Environment.GetEnvironmentVariable("VEXYBANK_BASE_URL")
+                               ?? "https://api.vexybank.com");
+    http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+})
+.SetHandlerLifetime(TimeSpan.FromMinutes(5))
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    // se precisar: ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+})
+// timeouts razoáveis p/ chamadas bancárias
+.AddPolicyHandler(Polly.Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(30)));
+
 
 // ------------------------------
 // DI – Repositórios / Serviços
@@ -185,7 +188,7 @@ builder.Services.AddScoped<IVexyService, VexyService>();
 builder.Services.AddScoped<IVexyBankClient, VexyBankClient>();
 builder.Services.AddScoped<IVexyBankService, VexyBankService>();
 
-// utilitários (singleton)
+// utilitários
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
@@ -243,9 +246,10 @@ if (app.Environment.IsDevelopment())
     app.UseCors("CorsDev");
 }
 
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseAuthentication();   // <- sempre antes
+app.UseAuthorization();    // <- de Authorization
 
+// NÃO usar .RequireAuthorization() global
 if (app.Environment.IsDevelopment())
     app.MapControllers().RequireCors("CorsDev");
 else

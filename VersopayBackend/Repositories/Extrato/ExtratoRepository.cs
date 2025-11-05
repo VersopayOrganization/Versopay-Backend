@@ -4,17 +4,20 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
-    public sealed class ExtratoRepository(AppDbContext appDbContext) : IExtratoRepository
+    public sealed class ExtratoRepository : IExtratoRepository
     {
-        public Task<Extrato?> GetByClienteIdAsync(int clienteId, CancellationToken cancellationToken) =>
-            appDbContext.Extratos.FirstOrDefaultAsync(extrato => extrato.ClienteId == clienteId, cancellationToken);
+        private readonly AppDbContext _db;
+        public ExtratoRepository(AppDbContext db) => _db = db;
 
-        public Task<Extrato?> GetByClienteIdNoTrackingAsync(int clienteId, CancellationToken cancellationToken) =>
-            appDbContext.Extratos.AsNoTracking().FirstOrDefaultAsync(extrato => extrato.ClienteId == clienteId, cancellationToken);
+        public Task<Extrato?> GetByClienteIdAsync(int clienteId, CancellationToken ct) =>
+            _db.Extratos.FirstOrDefaultAsync(e => e.ClienteId == clienteId, ct);
 
-        public Task AddAsync(Extrato extrato, CancellationToken cancellationToken) =>
-            appDbContext.Extratos.AddAsync(extrato, cancellationToken).AsTask();
+        public Task<Extrato?> GetByClienteIdNoTrackingAsync(int clienteId, CancellationToken ct) =>
+            _db.Extratos.AsNoTracking().FirstOrDefaultAsync(e => e.ClienteId == clienteId, ct);
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);
+        public Task AddAsync(Extrato entity, CancellationToken ct) =>
+            _db.Extratos.AddAsync(entity, ct).AsTask();
+
+        public Task SaveChangesAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
     }
 }

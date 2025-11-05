@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VersopayLibrary.Enums;
 using VersopayLibrary.Models;
 
@@ -19,17 +15,22 @@ public class ProviderCredential
     [Required, MaxLength(200)] public string ClientId { get; set; } = default!;
     [Required, MaxLength(512)] public string ClientSecret { get; set; } = default!;
 
-    // NOVO: chaves da Vexy Bank
-    public string? ApiKey { get; set; }       // pk_live_* ou pk_test_*
-    public string? ApiSecret { get; set; }    // sk_live_* ou sk_test_*
+    // Vexy Bank
+    public string? ApiKey { get; set; }        // pk_live_* ou pk_test_*
+    public string? ApiSecret { get; set; }     // sk_live_* ou sk_test_*
 
+    // Segredo atual usado para validar o HMAC do webhook
+    [MaxLength(256)]
     public string? WebhookSignatureSecret { get; set; }
 
-    // Só a Vexy usa token de sessão (JWT); Versell usa headers fixos por request
+    // 🔄 Segredo anterior (permite período de transição/rotação)
+    [MaxLength(256)]
+    public string? PrevWebhookSignatureSecret { get; set; }
+
+    // Cache do token de sessão (quando aplicável)
     [MaxLength(600)] public string? AccessToken { get; set; }
     public DateTime? AccessTokenExpiresUtc { get; set; }
 
     public DateTime CriadoEmUtc { get; set; } = DateTime.UtcNow;
     public DateTime? AtualizadoEmUtc { get; set; }
 }
-

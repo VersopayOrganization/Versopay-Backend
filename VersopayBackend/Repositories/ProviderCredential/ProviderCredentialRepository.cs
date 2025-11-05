@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using VersopayBackend.Options;
 using VersopayDatabase.Data;
 using VersopayLibrary.Enums;
 
@@ -49,14 +50,36 @@ namespace VersopayBackend.Repositories
                     .ToListAsync(ct);
 
         // >>> NOVO:
-        public async Task<IEnumerable<string>> GetVexyWebhookSecretsByOwnerAsync(int ownerUserId, CancellationToken ct) =>
-            await db.Set<ProviderCredential>()
-                    .Where(c => c.OwnerUserId == ownerUserId &&
-                                c.Provider == PaymentProvider.Vexy &&
-                                c.WebhookSignatureSecret != null &&
-                                c.WebhookSignatureSecret != "")
-                    .Select(c => c.WebhookSignatureSecret!)
-                    .ToListAsync(ct);
+        public async Task<string?> GetVexyWebhookSecretByOwnerAsync(int ownerUserId, CancellationToken ct)
+        {
+            var cred = await db.Set<ProviderCredential>()
+                               .AsNoTracking()
+                               .FirstOrDefaultAsync(c => c.OwnerUserId == ownerUserId
+                                                      && c.Provider == PaymentProvider.Vexy, ct);
+            return cred?.WebhookSignatureSecret;
+        }
+
+        public async Task RotateVexyWebhookSecretAsync(int ownerUserId, string? newSecret, CancellationToken ct)
+        {
+            var cred = await GetAsync(ownerUserId, PaymentProvider.Vexy, ct)
+                ?? throw new InvalidOperationException("Credenciais Vexy não configuradas.");
+
+            // Se newSecret == null, gere aqui:
+            newSecret ??= WebhookSecretGenerator.NewHexSecret();
+
+            // Move o atual para "previous", grava o novo como "current"
+            cred.PrevWebhookSignatureSecret = cred.WebhookSignatureSecret;
+            cred.WebhookSignatureSecret = newSecret;
+            cred.AtualizadoEmUtc = DateTime.UtcNow;
+            await SaveChangesAsync(ct);
+        }
+
+        public async Task<(string? current, string? previous)> GetVexySecretsPairAsync(int ownerUserId, CancellationToken ct)
+        {
+            var cred = await GetAsync(ownerUserId, PaymentProvider.Vexy, ct);
+            return (cred?.WebhookSignatureSecret, cred?.PrevWebhookSignatureSecret);
+        }
+
 
         public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
     }

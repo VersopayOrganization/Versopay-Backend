@@ -4,11 +4,14 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
-    public sealed class TransferenciaMatchRepository(AppDbContext db) : ITransferenciaMatchRepository
+    public sealed class TransferenciaMatchRepository : ITransferenciaMatchRepository
     {
-        public Task<Transferencia?> GetByGatewayIdAsync(string gatewayId, CancellationToken ct) =>
-            db.Transferencias.FirstOrDefaultAsync(t => t.GatewayTransactionId == gatewayId, ct);
+        private readonly AppDbContext _db;
+        public TransferenciaMatchRepository(AppDbContext db) => _db = db;
 
-        public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
+        public Task<Transferencia?> GetByGatewayIdAsync(string gatewayId, CancellationToken ct) =>
+            _db.Transferencias.FirstOrDefaultAsync(t => t.GatewayTransactionId == gatewayId, ct);
+
+        public Task SaveChangesAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
     }
 }

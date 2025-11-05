@@ -6,165 +6,167 @@ using static VersopayLibrary.Enums.FinanceiroEnums;
 
 namespace VersopayBackend.Services
 {
-    public sealed class ExtratoService(
-        IExtratoRepository extratoRepository,
-        IMovimentacaoRepository movimentacaoRepository,
-        IUsuarioRepository usuarioRepository
-    ) : IExtratoService
+    public sealed class ExtratoService : IExtratoService
     {
-        public async Task<ExtratoResponseDto> GetByClienteAsync(int clienteId, CancellationToken cancellationToken)
+        private readonly IExtratoRepository _extratoRepository;
+        private readonly IMovimentacaoRepository _movimentacaoRepository;
+        private readonly IUsuarioRepository _usuarioRepository;
+
+        public ExtratoService(
+            IExtratoRepository extratoRepository,
+            IMovimentacaoRepository movimentacaoRepository,
+            IUsuarioRepository usuarioRepository)
         {
-            var extrato = await EnsureExtratoAsync(clienteId, cancellationToken);
+            _extratoRepository = extratoRepository;
+            _movimentacaoRepository = movimentacaoRepository;
+            _usuarioRepository = usuarioRepository;
+        }
+
+        public async Task<ExtratoResponseDto> GetByClienteAsync(int clienteId, CancellationToken ct)
+        {
+            var extrato = await EnsureExtratoAsync(clienteId, ct);
             return Map(extrato);
         }
 
-        public async Task<MovimentacaoResponseDto> LancarAsync(MovimentacaoCreateDto movimentacaoCreateDto, CancellationToken cancellationToken)
+        public async Task<MovimentacaoResponseDto> LancarAsync(MovimentacaoCreateDto body, CancellationToken ct)
         {
-            // garante cliente existente
-            var user = await usuarioRepository.GetByIdAsync(movimentacaoCreateDto.ClienteId, cancellationToken);
-            if (user is null) throw new ArgumentException("ClienteId inválido.");
+            var user = await _usuarioRepository.GetByIdAsync(body.ClienteId, ct)
+                ?? throw new ArgumentException("ClienteId inválido.");
 
-            var extrato = await EnsureExtratoAsync(movimentacaoCreateDto.ClienteId, cancellationToken);
+            var extrato = await EnsureExtratoAsync(body.ClienteId, ct);
 
-            var movimentacaoFinanceira = new MovimentacaoFinanceira
+            var mov = new MovimentacaoFinanceira
             {
-                ClienteId = movimentacaoCreateDto.ClienteId,
-                Tipo = movimentacaoCreateDto.Tipo,
-                Status = movimentacaoCreateDto.EfetivarAgora ? StatusMovimentacao.Efetivada : StatusMovimentacao.Pendente,
-                Valor = movimentacaoCreateDto.Valor,
-                Descricao = movimentacaoCreateDto.Descricao,
-                Referencia = movimentacaoCreateDto.Referencia,
-                EfetivadoEmUtc = movimentacaoCreateDto.EfetivarAgora ? DateTime.UtcNow : null
+                ClienteId = body.ClienteId,
+                Tipo = body.Tipo,
+                Status = body.EfetivarAgora ? StatusMovimentacao.Efetivada : StatusMovimentacao.Pendente,
+                Valor = body.Valor,
+                Descricao = body.Descricao,
+                Referencia = body.Referencia,
+                EfetivadoEmUtc = body.EfetivarAgora ? DateTime.UtcNow : null
             };
 
-            ApplyBusinessRule(extrato, movimentacaoFinanceira, isNew: true);
+            ApplyBusinessRule(extrato, mov, isNew: true);
 
-            await movimentacaoRepository.AddAsync(movimentacaoFinanceira, cancellationToken);
-            await extratoRepository.SaveChangesAsync(cancellationToken); // salva pelo mesmo DbContext
+            await _movimentacaoRepository.AddAsync(mov, ct);
+            await _extratoRepository.SaveChangesAsync(ct);
 
-            return Map(movimentacaoFinanceira);
+            return Map(mov);
         }
 
-        public async Task<MovimentacaoResponseDto?> ConfirmarAsync(Guid id, CancellationToken cancellationToken)
+        public async Task<MovimentacaoResponseDto?> ConfirmarAsync(Guid id, CancellationToken ct)
         {
-            var movimentacaoFinanceira = await movimentacaoRepository.FindByIdAsync(id, cancellationToken);
-            if (movimentacaoFinanceira is null) return null;
-            if (movimentacaoFinanceira.Status != StatusMovimentacao.Pendente) return Map(movimentacaoFinanceira); // nada a fazer
+            var mov = await _movimentacaoRepository.FindByIdAsync(id, ct);
+            if (mov is null) return null;
+            if (mov.Status != StatusMovimentacao.Pendente) return Map(mov);
 
-            var e = await EnsureExtratoAsync(movimentacaoFinanceira.ClienteId, cancellationToken);
+            var extrato = await EnsureExtratoAsync(mov.ClienteId, ct);
 
-            movimentacaoFinanceira.Status = StatusMovimentacao.Efetivada;
-            movimentacaoFinanceira.EfetivadoEmUtc = DateTime.UtcNow;
+            mov.Status = StatusMovimentacao.Efetivada;
+            mov.EfetivadoEmUtc = DateTime.UtcNow;
 
-            ApplyBusinessRule(e, movimentacaoFinanceira, isNew: false);
+            ApplyBusinessRule(extrato, mov, isNew: false);
 
-            await movimentacaoRepository.SaveChangesAsync(cancellationToken);
-            return Map(movimentacaoFinanceira);
+            await _movimentacaoRepository.SaveChangesAsync(ct);
+            return Map(mov);
         }
 
-        public async Task<bool> CancelarAsync(Guid id, CancellationToken cancellationToken)
+        public async Task<bool> CancelarAsync(Guid id, CancellationToken ct)
         {
-            var movimentacaoFinanceira = await movimentacaoRepository.FindByIdAsync(id, cancellationToken);
-            if (movimentacaoFinanceira is null) return false;
+            var mov = await _movimentacaoRepository.FindByIdAsync(id, ct);
+            if (mov is null) return false;
 
-            if (movimentacaoFinanceira.Status != StatusMovimentacao.Pendente)
+            if (mov.Status != StatusMovimentacao.Pendente)
                 throw new InvalidOperationException("Apenas movimentações pendentes podem ser canceladas.");
 
-            var extrato = await EnsureExtratoAsync(movimentacaoFinanceira.ClienteId, cancellationToken);
+            var extrato = await EnsureExtratoAsync(mov.ClienteId, ct);
 
-            // desfaz efeitos de pendência
-            if (movimentacaoFinanceira.Tipo == TipoMovimentacao.Credito)
+            if (mov.Tipo == TipoMovimentacao.Credito)
             {
-                extrato.SaldoPendente -= movimentacaoFinanceira.Valor;
+                extrato.SaldoPendente -= mov.Valor;
             }
-            else // Débito pendente
+            else
             {
-                // devolve a reserva
-                extrato.ReservaFinanceira -= movimentacaoFinanceira.Valor;
-                extrato.SaldoDisponivel += movimentacaoFinanceira.Valor;
+                extrato.ReservaFinanceira -= mov.Valor;
+                extrato.SaldoDisponivel += mov.Valor;
             }
 
             extrato.AtualizadoEmUtc = DateTime.UtcNow;
 
-            movimentacaoFinanceira.Status = StatusMovimentacao.Cancelada;
-            movimentacaoFinanceira.CanceladoEmUtc = DateTime.UtcNow;
+            mov.Status = StatusMovimentacao.Cancelada;
+            mov.CanceladoEmUtc = DateTime.UtcNow;
 
-            await movimentacaoRepository.SaveChangesAsync(cancellationToken);
+            await _movimentacaoRepository.SaveChangesAsync(ct);
             return true;
         }
 
         public async Task<IEnumerable<MovimentacaoResponseDto>> ListarMovimentacoesAsync(
-            int clienteId, MovimentacaoFiltroDto filtro, CancellationToken cancellationToken)
+            int clienteId, MovimentacaoFiltroDto filtro, CancellationToken ct)
         {
             if (filtro.Page < 1) filtro.Page = 1;
             if (filtro.PageSize < 1 || filtro.PageSize > 200) filtro.PageSize = 20;
 
-            var q = movimentacaoRepository.QueryNoTracking().Where(x => x.ClienteId == clienteId);
+            var q = _movimentacaoRepository.QueryNoTracking().Where(x => x.ClienteId == clienteId);
             if (filtro.Status.HasValue) q = q.Where(x => x.Status == filtro.Status.Value);
 
             var list = await q.OrderByDescending(x => x.CriadoEmUtc)
                               .Skip((filtro.Page - 1) * filtro.PageSize)
                               .Take(filtro.PageSize)
-                              .ToListAsync(cancellationToken);
+                              .ToListAsync(ct);
 
             return list.Select(Map);
         }
 
-        // ===== regras de negócio básicas =====
-        private static void ApplyBusinessRule(Extrato extrato, MovimentacaoFinanceira movimentacaoFinanceira, bool isNew)
+        private static void ApplyBusinessRule(Extrato e, MovimentacaoFinanceira m, bool isNew)
         {
-            // isNew = lançamento; !isNew = transição de Pendente -> Efetivada
-            if (movimentacaoFinanceira.Tipo == TipoMovimentacao.Credito)
+            if (m.Tipo == TipoMovimentacao.Credito)
             {
                 if (isNew)
                 {
-                    if (movimentacaoFinanceira.Status == StatusMovimentacao.Pendente)
-                        extrato.SaldoPendente += movimentacaoFinanceira.Valor;
-                    else // Efetivada direta
-                        extrato.SaldoDisponivel += movimentacaoFinanceira.Valor;
+                    if (m.Status == StatusMovimentacao.Pendente)
+                        e.SaldoPendente += m.Valor;
+                    else
+                        e.SaldoDisponivel += m.Valor;
                 }
                 else
                 {
-                    // confirmar crédito pendente
-                    extrato.SaldoPendente -= movimentacaoFinanceira.Valor;
-                    extrato.SaldoDisponivel += movimentacaoFinanceira.Valor;
+                    e.SaldoPendente -= m.Valor;
+                    e.SaldoDisponivel += m.Valor;
                 }
             }
-            else // Débito
+            else
             {
                 if (isNew)
                 {
-                    if (movimentacaoFinanceira.Status == StatusMovimentacao.Pendente)
+                    if (m.Status == StatusMovimentacao.Pendente)
                     {
-                        // trava a quantia (reserva) e remove do disponível
-                        if (extrato.SaldoDisponivel < movimentacaoFinanceira.Valor)
+                        if (e.SaldoDisponivel < m.Valor)
                             throw new InvalidOperationException("Saldo disponível insuficiente para reservar.");
 
-                        extrato.SaldoDisponivel -= movimentacaoFinanceira.Valor;
-                        extrato.ReservaFinanceira += movimentacaoFinanceira.Valor;
+                        e.SaldoDisponivel -= m.Valor;
+                        e.ReservaFinanceira += m.Valor;
                     }
-                    else // Efetivado direto (sem reserva)
+                    else
                     {
-                        if (extrato.SaldoDisponivel < movimentacaoFinanceira.Valor)
+                        if (e.SaldoDisponivel < m.Valor)
                             throw new InvalidOperationException("Saldo disponível insuficiente.");
 
-                        extrato.SaldoDisponivel -= movimentacaoFinanceira.Valor;
+                        e.SaldoDisponivel -= m.Valor;
                     }
                 }
                 else
                 {
-                    // confirmar débito pendente -> consome a reserva
-                    extrato.ReservaFinanceira -= movimentacaoFinanceira.Valor;
+                    e.ReservaFinanceira -= m.Valor;
                 }
             }
 
-            extrato.AtualizadoEmUtc = DateTime.UtcNow;
+            e.AtualizadoEmUtc = DateTime.UtcNow;
         }
 
-        private async Task<Extrato> EnsureExtratoAsync(int clienteId, CancellationToken cancellationToken)
+        private async Task<Extrato> EnsureExtratoAsync(int clienteId, CancellationToken ct)
         {
-            var extrato = await extratoRepository.GetByClienteIdAsync(clienteId, cancellationToken);
-            if (extrato is not null) return extrato;
+            var e = await _extratoRepository.GetByClienteIdAsync(clienteId, ct);
+            if (e is not null) return e;
 
             var novo = new Extrato
             {
@@ -174,33 +176,33 @@ namespace VersopayBackend.Services
                 ReservaFinanceira = 0m,
                 AtualizadoEmUtc = DateTime.UtcNow
             };
-            await extratoRepository.AddAsync(novo, cancellationToken);
-            await extratoRepository.SaveChangesAsync(cancellationToken);
+            await _extratoRepository.AddAsync(novo, ct);
+            await _extratoRepository.SaveChangesAsync(ct);
             return novo;
         }
 
-        private static ExtratoResponseDto Map(Extrato extrato) => new()
+        private static ExtratoResponseDto Map(Extrato e) => new()
         {
-            Id = extrato.Id,
-            ClienteId = extrato.ClienteId,
-            SaldoDisponivel = extrato.SaldoDisponivel,
-            SaldoPendente = extrato.SaldoPendente,
-            ReservaFinanceira = extrato.ReservaFinanceira,
-            AtualizadoEmUtc = extrato.AtualizadoEmUtc
+            Id = e.Id,
+            ClienteId = e.ClienteId,
+            SaldoDisponivel = e.SaldoDisponivel,
+            SaldoPendente = e.SaldoPendente,
+            ReservaFinanceira = e.ReservaFinanceira,
+            AtualizadoEmUtc = e.AtualizadoEmUtc
         };
 
-        private static MovimentacaoResponseDto Map(MovimentacaoFinanceira movimentacaoFinanceira) => new()
+        private static MovimentacaoResponseDto Map(MovimentacaoFinanceira m) => new()
         {
-            Id = movimentacaoFinanceira.Id,
-            ClienteId = movimentacaoFinanceira.ClienteId,
-            Tipo = movimentacaoFinanceira.Tipo,
-            Status = movimentacaoFinanceira.Status,
-            Valor = movimentacaoFinanceira.Valor,
-            Descricao = movimentacaoFinanceira.Descricao,
-            Referencia = movimentacaoFinanceira.Referencia,
-            CriadoEmUtc = movimentacaoFinanceira.CriadoEmUtc,
-            EfetivadoEmUtc = movimentacaoFinanceira.EfetivadoEmUtc,
-            CanceladoEmUtc = movimentacaoFinanceira.CanceladoEmUtc
+            Id = m.Id,
+            ClienteId = m.ClienteId,
+            Tipo = m.Tipo,
+            Status = m.Status,
+            Valor = m.Valor,
+            Descricao = m.Descricao,
+            Referencia = m.Referencia,
+            CriadoEmUtc = m.CriadoEmUtc,
+            EfetivadoEmUtc = m.EfetivadoEmUtc,
+            CanceladoEmUtc = m.CanceladoEmUtc
         };
     }
 }

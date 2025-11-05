@@ -3,11 +3,12 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
+    // leitura agregada usada por FaturamentoService
     public interface IPedidoReadRepository
     {
-        Task<(int qtd, decimal total)> GetVendasAprovadasAsync(int vendedorId, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken);
-        Task<MetodoStatsRaw> GetStatsPorMetodoAsync(int vendedorId, MetodoPagamento metodo, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken);
-        Task<(int qtd, decimal total)> GetChargebackAsync(int vendedorId, DateTime? dataInicio, DateTime? dataFim, CancellationToken cancellationToken);
+        Task<(int qtd, decimal total)> GetVendasAprovadasAsync(int vendedorId, DateTime? dataInicio, DateTime? dataFim, CancellationToken ct);
+        Task<MetodoStatsRaw> GetStatsPorMetodoAsync(int vendedorId, MetodoPagamento metodo, DateTime? dataInicio, DateTime? dataFim, CancellationToken ct);
+        Task<(int qtd, decimal total)> GetChargebackAsync(int vendedorId, DateTime? dataInicio, DateTime? dataFim, CancellationToken ct);
 
         Task<List<Pedido>> GetAllAsync(
             StatusPedido? status,
@@ -17,7 +18,7 @@ namespace VersopayBackend.Repositories
             DateTime? dataFim,
             int page,
             int pageSize,
-            CancellationToken cancellationToken);
+            CancellationToken ct);
     }
 
     public sealed class MetodoStatsRaw
