@@ -6,13 +6,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
 using VersopayBackend.Options;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
 using VersopayBackend.Repositories.Vexy;
+using VersopayBackend.Repositories.VexyClient.PixIn;
 using VersopayBackend.Services;
 using VersopayBackend.Services.Auth;
 using VersopayBackend.Services.Email;
@@ -20,10 +20,9 @@ using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
 using VersopayBackend.Services.Taxas;
 using VersopayBackend.Services.Vexy;
-
 using VersopayDatabase.Data;
-using VersopayLibrary.Models;
 using VersopayLibrary.Enums;
+using VersopayLibrary.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -187,6 +186,8 @@ builder.Services.AddScoped<IVexyService, VexyService>();
 
 builder.Services.AddScoped<IVexyBankClient, VexyBankClient>();
 builder.Services.AddScoped<IVexyBankService, VexyBankService>();
+
+builder.Services.AddScoped<IVexyBankPixInRepository, VexyBankPixInRepository>();
 
 // utilitários
 builder.Services.AddSingleton<IClock, SystemClock>();

@@ -14,5 +14,8 @@ namespace VersopayBackend.Repositories
 
         // Chamada POST autenticada (Bearer)
         Task<TResp> PostAsync<TReq, TResp>(int ownerUserId, string path, TReq body, CancellationToken ct);
+
+        // ✅ NOVO: com idempotency
+        Task<TResp> PostAsync<TReq, TResp>(int ownerUserId, string path, TReq body, string idempotencyKey, CancellationToken ct);
     }
 }

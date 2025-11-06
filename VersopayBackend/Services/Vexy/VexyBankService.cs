@@ -1,8 +1,9 @@
-﻿using System.Text.Json;
-using System.Linq; // Where(char.IsDigit)
+﻿using System.Linq; // Where(char.IsDigit)
+using System.Text.Json;
 using VersopayBackend.Dtos;
 using VersopayBackend.Dtos.VexyBank;
 using VersopayBackend.Repositories;
+using VersopayBackend.Repositories.VexyClient.PixIn;
 using VersopayLibrary.Enums;
 using VersopayLibrary.Models;
 
@@ -12,12 +13,14 @@ namespace VersopayBackend.Services.Vexy
         IVexyBankClient client,
         IInboundWebhookLogRepository inboundLogRepo,
         IProviderCredentialRepository credRepo,
+        IVexyBankPixInRepository pixInRepo,
         ILogger<VexyBankService> logger
     ) : IVexyBankService
     {
         private readonly IVexyBankClient _client = client;
         private readonly IInboundWebhookLogRepository _inboundLogRepo = inboundLogRepo;
         private readonly IProviderCredentialRepository _credRepo = credRepo;
+        private readonly IVexyBankPixInRepository _pixInRepo = pixInRepo;
         private readonly ILogger<VexyBankService> _logger = logger;
 
         private static string BuildUserWebhookUrl(string publicBaseUrl, int ownerUserId, string channel) =>
@@ -56,25 +59,36 @@ namespace VersopayBackend.Services.Vexy
 
         public async Task<PixInCreateRespDto> CreatePixInAsync(int ownerUserId, PixInCreateReqDto req, CancellationToken ct)
         {
-            // garante que há credenciais salvas
             _ = await _credRepo.GetAsync(ownerUserId, PaymentProvider.Vexy, ct)
                 ?? throw new InvalidOperationException("Credenciais Vexy não configuradas para este usuário.");
 
-            // postback padrão caso não venha
             if (string.IsNullOrWhiteSpace(req.PostbackUrl))
             {
-                var publicBase = Environment.GetEnvironmentVariable("PUBLIC_BASE_URL")
-                                 ?? "https://versopay.com.br";
-                req.PostbackUrl = BuildUserWebhookUrl(publicBase, ownerUserId, "pix-in");
+                var publicBase = Environment.GetEnvironmentVariable("PUBLIC_BASE_URL") ?? "https://versopay.com.br";
+                req.PostbackUrl = $"{publicBase.TrimEnd('/')}/api/webhooks/v1/vexy/{ownerUserId}/pix-in";
             }
 
-            // normalizações
+            // Normalizações
             req.Customer.Document = new string((req.Customer.Document ?? "").Where(char.IsDigit).ToArray());
             req.Customer.DocumentType = req.Customer.Document?.Length == 14 ? "cnpj" : "cpf";
 
-            // Aqui o client injeta Bearer (obtido via EnsureJwtAsync)
             var resp = await _client.PostAsync<PixInCreateReqDto, PixInCreateRespDto>(
                 ownerUserId, "/api/v1/pix/in/qrcode", req, ct);
+
+            // >>> Salva localmente o PIX IN criado
+            var entity = new VexyBankPixIn
+            {
+                OwnerUserId = ownerUserId,
+                ExternalId = resp.Data.Id,             // "cmhnd0tb900qt1mib0ihtatrw"
+                Status = resp.Data.Status,         // "pending"
+                AmountCents = null,                     // preencha se você tiver o valor
+                PixEmv = resp.Data.Pix?.Emv,
+                QrPngBase64 = resp.Data.Pix?.QrCodeBase64,
+                PostbackUrl = req.PostbackUrl
+            };
+
+            await _pixInRepo.AddAsync(entity, ct);
+            await _pixInRepo.SaveChangesAsync(ct);
 
             return resp;
         }
@@ -86,28 +100,33 @@ namespace VersopayBackend.Services.Vexy
 
             if (string.IsNullOrWhiteSpace(req.PostbackUrl))
             {
-                var publicBase = Environment.GetEnvironmentVariable("PUBLIC_BASE_URL")
-                                 ?? "https://versopay.com.br";
+                var publicBase = Environment.GetEnvironmentVariable("PUBLIC_BASE_URL") ?? "https://versopay.com.br";
                 req.PostbackUrl = BuildUserWebhookUrl(publicBase, ownerUserId, "pix-out");
             }
 
-            // TODO: ideal enviar "x-idempotency-key" como header. Seu IVexyBankClient atual
-            // não possui sobrecarga com headers; quando criarmos, injete o header aqui.
+            if (string.IsNullOrWhiteSpace(idempotencyKey))
+                throw new InvalidOperationException("X-Idempotency-Key é obrigatório para Pix Out.");
+
+            // ✅ agora manda o header x-idempotency-key
             var resp = await _client.PostAsync<PixOutReqDto, PixOutRespDto>(
-                ownerUserId, "/api/v1/pix/out/pixkey", req, ct);
+                ownerUserId,
+                "/api/v1/pix/out/pixkey",
+                req,
+                idempotencyKey,
+                ct);
 
             return resp;
         }
 
 
         public async Task HandleWebhookAsync(
-            int ownerUserId,
-            VexyWebhookEnvelope payload,
-            string? sourceIp,
-            IDictionary<string, string>? headers,
-            CancellationToken ct)
+        int ownerUserId,
+        VexyWebhookEnvelope payload,
+        string? sourceIp,
+        IDictionary<string, string>? headers,
+        CancellationToken ct)
         {
-            // dedupe por id+tipo+owner
+            // --- dedupe + log já existentes no seu código ---
             var eventKey = $"vexy:{ownerUserId}:{payload.Type}:{payload.Event}:{payload.Id}".ToLowerInvariant();
             if (await _inboundLogRepo.ExistsByEventKeyAsync(eventKey, ct)) return;
 
@@ -132,8 +151,39 @@ namespace VersopayBackend.Services.Vexy
             await _inboundLogRepo.AddAsync(log, ct);
             await _inboundLogRepo.SaveChangesAsync(ct);
 
-            // aqui você faz os efeitos de domínio (aprovar pedido, atualizar extrato, etc.)
+            // --- ATUALIZA o VexyBankPixIn quando for transaction ---
+            if (payload.Type?.Equals("transaction", StringComparison.OrdinalIgnoreCase) == true &&
+                payload.Transaction is not null &&
+                !string.IsNullOrWhiteSpace(payload.Transaction.Id))
+            {
+                var extId = payload.Transaction.Id!;
+                var local = await _pixInRepo.FindByExternalIdAsync(ownerUserId, extId, ct);
+                if (local is not null)
+                {
+                    local.Status = payload.Transaction.Status?.ToLowerInvariant();
+
+                    // tenta obter o documento do pagador
+                    var doc =
+                        payload.Transaction.Pix?.PayerInfo?.Document ??
+                        payload.Transaction.PayerDocument;
+
+                    if (!string.IsNullOrWhiteSpace(doc))
+                        local.PayerDocument = doc;
+
+                    if (string.Equals(local.Status, "paid", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(local.Status, "completed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        local.PaidAtUtc = DateTime.UtcNow;
+                    }
+
+                    local.UpdatedAtUtc = DateTime.UtcNow;
+                    await _pixInRepo.SaveChangesAsync(ct);
+                }
+            }
+
+            // aqui você pode disparar efeitos de domínio (aprovar pedido, lançar extrato etc.)
         }
+
 
         public async Task<PixInStatusRespDto> GetPixInAsync(int ownerUserId, string id, CancellationToken ct)
         {

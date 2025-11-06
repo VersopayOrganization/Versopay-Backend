@@ -22,6 +22,8 @@ namespace VersopayDatabase.Data
         public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
         public DbSet<Faturamento> Faturamentos => Set<Faturamento>();
         public DbSet<ProviderCredential> ProviderCredentials => Set<ProviderCredential>();
+        public DbSet<VexyBankPixIn> VexyBankPixIns { get; set; } = default!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

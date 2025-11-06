@@ -120,5 +120,35 @@ namespace VersopayBackend.Repositories.Vexy
             if (data is null) throw new InvalidOperationException($"VexyBank POST {path} retornou vazio.");
             return data;
         }
+
+        public async Task<TResp> PostAsync<TReq, TResp>(int ownerUserId, string path, TReq body, string idempotencyKey, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(idempotencyKey))
+                throw new ArgumentException("Idempotency key is required.", nameof(idempotencyKey));
+
+            var token = await EnsureJwtAsync(ownerUserId, ct);
+            var http = Create();
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, path)
+            {
+                Content = JsonContent.Create(body)
+            };
+
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // 🔑 Header que a Vexy valida
+            // Use o nome em minúsculas como aparece no erro/validação deles.
+            req.Headers.TryAddWithoutValidation("x-idempotency-key", idempotencyKey);
+
+            var resp = await http.SendAsync(req, ct);
+            var raw = await resp.Content.ReadAsStringAsync(ct);
+
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException($"VexyBank POST {path} failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {raw}");
+
+            var data = JsonSerializer.Deserialize<TResp>(raw, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (data is null) throw new InvalidOperationException($"VexyBank POST {path} retornou vazio.");
+            return data;
+        }
     }
 }

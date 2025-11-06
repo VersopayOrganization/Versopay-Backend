@@ -9,5 +9,6 @@ namespace VersopayBackend.Dtos.VexyBank
         [JsonPropertyName("status")] public string? Status { get; set; }        // "pending" | "paid" | ...
         [JsonPropertyName("pix")] public VexyPixInfoDto? Pix { get; set; }
         [JsonPropertyName("customer")] public VexyCustomerDto? Customer { get; set; }
+        [JsonPropertyName("PayerDocument")] public string? PayerDocument { get; set; }
     }
 }

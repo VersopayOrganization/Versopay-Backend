@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using VersopayBackend.Dtos.VexyBank;
+using VersopayBackend.Repositories.VexyClient.PixIn;
 using VersopayBackend.Services.Vexy;
 
 [ApiController]
@@ -28,6 +29,31 @@ public class VexyBankController(IVexyBankService service) : ControllerBase
     [HttpGet("pix-in/{id}")]
     public Task<PixInStatusRespDto> GetPixIn([FromRoute] string id, CancellationToken ct)
         => service.GetPixInAsync(CurrentUserId(User), id, ct);
+
+    [HttpGet("pix-in/local/{id}")]
+    public async Task<ActionResult<object>> GetPixInLocal(
+    [FromRoute] string id,
+    [FromServices] IVexyBankPixInRepository repo,
+    CancellationToken ct)
+    {
+        var ownerId = CurrentUserId(User);
+        var e = await repo.FindByExternalIdAsync(ownerId, id, ct);
+        if (e is null) return NotFound();
+
+        return Ok(new
+        {
+            e.ExternalId,
+            e.Status,
+            e.AmountCents,
+            e.PixEmv,
+            HasQr = !string.IsNullOrEmpty(e.QrPngBase64),
+            e.PostbackUrl,
+            e.PayerDocument,
+            e.CreatedAtUtc,
+            e.UpdatedAtUtc,
+            e.PaidAtUtc
+        });
+    }
 
     [HttpPost("pix-out")]
     public Task<PixOutRespDto> PixOut([FromBody] PixOutReqDto req,
