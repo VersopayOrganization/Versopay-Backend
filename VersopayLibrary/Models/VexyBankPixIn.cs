@@ -36,6 +36,9 @@ namespace VersopayLibrary.Models
 
         /// <summary>CPF/CNPJ do pagador (preenchido no webhook).</summary>
         public string? PayerDocument { get; set; }
+        /// <summary> Adicionar o vínculo com o pedido para facilitar reconciliação </summary>
+        public int? PedidoId { get; set; }
+
 
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAtUtc { get; set; }

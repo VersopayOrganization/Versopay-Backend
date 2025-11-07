@@ -57,7 +57,7 @@ namespace VersopayBackend.Services.Vexy
             }
         }
 
-        public async Task<PixInCreateRespDto> CreatePixInAsync(int ownerUserId, PixInCreateReqDto req, CancellationToken ct)
+        public async Task<PixInCreateRespDto> CreatePixInAsync(int ownerUserId, PixInCreateReqDto req, CancellationToken ct, int? pedidoId = null)
         {
             _ = await _credRepo.GetAsync(ownerUserId, PaymentProvider.Vexy, ct)
                 ?? throw new InvalidOperationException("Credenciais Vexy não configuradas para este usuário.");
@@ -84,8 +84,11 @@ namespace VersopayBackend.Services.Vexy
                 AmountCents = null,                     // preencha se você tiver o valor
                 PixEmv = resp.Data.Pix?.Emv,
                 QrPngBase64 = resp.Data.Pix?.QrCodeBase64,
-                PostbackUrl = req.PostbackUrl
+                PostbackUrl = req.PostbackUrl,
+                PedidoId = pedidoId ?? 0
             };
+
+
 
             await _pixInRepo.AddAsync(entity, ct);
             await _pixInRepo.SaveChangesAsync(ct);

@@ -48,6 +48,7 @@ namespace VersopayLibrary.Models
         public DateTime DataCadastro { get; set; } = DateTime.UtcNow; 
         public DateTime? DataAprovacao { get; set; }
 
+        public PaymentProvider Provider { get; set; } // Versell, Vexy, etc.
         public string? ExternalId { get; set; }             // seu id/controle (idempotência)
         public string? GatewayTransactionId { get; set; }   // id que vem do provedor (para casar no webhook)
     }

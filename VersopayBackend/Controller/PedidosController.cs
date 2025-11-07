@@ -1,7 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 // using Microsoft.AspNetCore.Authorization;
 using VersopayBackend.Dtos;
+using VersopayBackend.Repositories;
+using VersopayBackend.Repositories.VexyClient.PixIn;
 using VersopayBackend.Services;
+using VersopayBackend.Services.Vexy;
+using VersopayLibrary.Enums;
 
 namespace VersopayBackend.Controllers
 {
@@ -11,18 +15,85 @@ namespace VersopayBackend.Controllers
     public class PedidosController : ControllerBase
     {
         private readonly IPedidosService _svc;
-        public PedidosController(IPedidosService svc) => _svc = svc;
+        private readonly IVexyBankService _vexyBank;              // + injete
+        private readonly IVexyBankPixInRepository _pixInRepo;     // + injete
+        private readonly IPedidoRepository _pedidoRepo;           // + injete
+        public PedidosController(
+         IPedidosService svc,
+         IVexyBankService vexyBank,
+         IVexyBankPixInRepository pixInRepo,
+         IPedidoRepository pedidoRepo)
+        {
+            _svc = svc;
+            _vexyBank = vexyBank;
+            _pixInRepo = pixInRepo;
+            _pedidoRepo = pedidoRepo;
+        }
 
         [HttpPost]
-        public async Task<ActionResult<PedidoDto>> Create([FromBody] PedidoCreateDto dto, CancellationToken ct)
+        public async Task<ActionResult<object>> Create([FromBody] PedidoCreateDto dto, CancellationToken ct)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
+
+            // 1) cria pedido local (pendente)
+            var res = await _svc.CreateAsync(dto, ct);
+
+            // 2) se for PIX → cria PIX-IN na Vexy e amarra IDs
+            if (string.Equals(res.MetodoPagamento, "Pix", StringComparison.OrdinalIgnoreCase))
             {
-                var res = await _svc.CreateAsync(dto, ct);
-                return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
+                // owner = vendedor do pedido
+                var ownerUserId = res.VendedorId;
+
+                var pixReq = new Dtos.VexyBank.PixInCreateReqDto
+                {
+                    AmountInCents = res.Valor * 100m,
+                    Description = $"Pedido #{res.Id}",
+                    // o webhook v1 já será montado se PostbackUrl vier nulo
+                    Customer = new()
+                    {
+                        Name = res.VendedorNome ?? "Cliente",
+                        Document = null,       // opcional (você pode preencher se tiver)
+                        Email = null,
+                        Phone = null
+                    },
+                    PostbackUrl = null
+                };
+
+                var pixResp = await _vexyBank.CreatePixInAsync(ownerUserId, pixReq, ct);
+
+                // 2.1) salva o id externo no Pedido e define Provider
+                var p = await _pedidoRepo.FindByIdAsync(res.Id, ct);
+                if (p is not null)
+                {
+                    p.Provider = PaymentProvider.Vexy;
+                    p.GatewayTransactionId = pixResp.Data.Id; // id da transação Vexy
+                    await _pedidoRepo.SaveChangesAsync(ct);
+                }
+
+                // 2.2) vincula o VexyBankPixIn ao Pedido
+                var localPix = await _pixInRepo.FindByExternalIdAsync(ownerUserId, pixResp.Data.Id, ct);
+                if (localPix is not null && localPix.PedidoId == 0)
+                {
+                    localPix.PedidoId = res.Id;
+                    await _pixInRepo.SaveChangesAsync(ct);
+                }
+
+                // 2.3) retorna também dados do QR para o front
+                return CreatedAtAction(nameof(GetById), new { id = res.Id }, new
+                {
+                    pedido = res,
+                    pix = new
+                    {
+                        id = pixResp.Data.Id,
+                        status = pixResp.Data.Status,
+                        emv = pixResp.Data.Pix?.Emv,
+                        qrBase64 = pixResp.Data.Pix?.QrCodeBase64
+                    }
+                });
             }
-            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+
+            // métodos não-Pix permanecem como antes
+            return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
         }
 
         [HttpGet]

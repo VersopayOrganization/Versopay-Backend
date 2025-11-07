@@ -4,7 +4,7 @@ namespace VersopayBackend.Services.Vexy
 {
     public interface IVexyBankService
     {
-        Task<PixInCreateRespDto> CreatePixInAsync(int ownerUserId, PixInCreateReqDto req, CancellationToken ct);
+        Task<PixInCreateRespDto> CreatePixInAsync(int ownerUserId, PixInCreateReqDto req, CancellationToken ct, int? pedidoId = null);
         Task<PixOutRespDto> SendPixOutAsync(int ownerUserId, PixOutReqDto req, string idempotencyKey, CancellationToken ct);
 
         // ✅ Consulta de status usa PixInStatusRespDto

@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
+using VersopayBackend.Repositories;
 using VersopayBackend.Services;
+using VersopayBackend.Services.Vexy;
 using VersopayLibrary.Enums;
 
 namespace VersopayBackend.Controllers
@@ -11,7 +13,17 @@ namespace VersopayBackend.Controllers
     public class TransferenciaController : ControllerBase
     {
         private readonly ITransferenciasService _transferenciaService;
-        public TransferenciaController(ITransferenciasService transferenciaService) => _transferenciaService = transferenciaService;
+        private readonly IVexyBankService _vexyBank;
+        private readonly ITransferenciaRepository _transferenciaRepository;
+        public TransferenciaController(
+             ITransferenciasService transferenciaService,
+             IVexyBankService vexyBank,
+             ITransferenciaRepository transferenciaRepository)
+        {
+            _transferenciaService = transferenciaService;
+            _vexyBank = vexyBank;
+            _transferenciaRepository = transferenciaRepository;
+        }
 
         [HttpGet]
         [Authorize]
@@ -38,15 +50,38 @@ namespace VersopayBackend.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<ActionResult<TransferenciaResponseDto>> Create([FromBody] TransferenciaCreateDto body, CancellationToken cancellationToken)
+        public async Task<ActionResult<TransferenciaResponseDto>> Create(
+                [FromBody] TransferenciaCreateDto body, CancellationToken ct)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
+
+            // 1) cria localmente (pendente)
+            var dto = await _transferenciaService.CreateAsync(body, ct);
+
+            // 2) dispara PIX-OUT na Vexy (idempotency = transf-{id})
+            var ownerUserId = dto.SolicitanteId; // saque do próprio usuário
+            var idem = $"transf-{dto.Id}";
+
+            var req = new Dtos.VexyBank.PixOutReqDto
             {
-                var dto = await _transferenciaService.CreateAsync(body, cancellationToken);
-                return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
+                Amount = (int)Math.Round(dto.ValorSolicitado * 100m, MidpointRounding.AwayFromZero),
+                PixKey = dto.ChavePix ?? body.ChavePix,
+                Description = $"Saque #{dto.Id}",
+                PostbackUrl = null // service monta /v1/vexy/{owner}/pix-out
+            };
+
+            var resp = await _vexyBank.SendPixOutAsync(ownerUserId, req, idem, ct);
+
+            // 2.1) salvar Provider+GatewayId na transferência
+            var e = await _transferenciaRepository.FindByIdAsync(dto.Id, ct);
+            if (e is not null)
+            {
+                e.Provider = PaymentProvider.Vexy;
+                e.GatewayTransactionId = resp.Data.Id; // id de transferência na Vexy
+                await _transferenciaRepository.SaveChangesAsync(ct);
             }
-            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
         }
 
         [HttpPut("{id:int}")]
