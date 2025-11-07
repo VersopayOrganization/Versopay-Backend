@@ -1,18 +1,32 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VersopayBackend.Dtos;
+using VersopayBackend.Repositories;
 using VersopayBackend.Services;
+using VersopayBackend.Services.Vexy;
 using VersopayLibrary.Enums;
 
-namespace VersopayBackend.Controller
+namespace VersopayBackend.Controllers
 {
     [ApiController]
     [Route("api/transferencias")]
-    public class TransferenciaController(ITransferenciasService transferenciaService) : ControllerBase
+    public class TransferenciaController : ControllerBase
     {
-        // Lista com filtros opcionais
+        private readonly ITransferenciasService _transferenciaService;
+        private readonly IVexyBankService _vexyBank;
+        private readonly ITransferenciaRepository _transferenciaRepository;
+        public TransferenciaController(
+             ITransferenciasService transferenciaService,
+             IVexyBankService vexyBank,
+             ITransferenciaRepository transferenciaRepository)
+        {
+            _transferenciaService = transferenciaService;
+            _vexyBank = vexyBank;
+            _transferenciaRepository = transferenciaRepository;
+        }
+
         [HttpGet]
-        [Authorize] // ajuste conforme sua política
+        [Authorize]
         public async Task<ActionResult<IEnumerable<TransferenciaResponseDto>>> GetAll(
             [FromQuery] int? solicitanteId,
             [FromQuery] StatusTransferencia? status,
@@ -22,56 +36,76 @@ namespace VersopayBackend.Controller
             [FromQuery] int pageSize = 20,
             CancellationToken cancellationToken = default)
         {
-            var transferenciaResponseList = await transferenciaService.GetAllAsync(solicitanteId, status, dataInicio, dataFim, page, pageSize, cancellationToken);
-            return Ok(transferenciaResponseList);
+            var list = await _transferenciaService.GetAllAsync(solicitanteId, status, dataInicio, dataFim, page, pageSize, cancellationToken);
+            return Ok(list);
         }
 
         [HttpGet("{id:int}")]
         [Authorize]
         public async Task<ActionResult<TransferenciaResponseDto>> GetById(int id, CancellationToken cancellationToken)
         {
-            var transferenciaResponseDto = await transferenciaService.GetByIdAsync(id, cancellationToken);
-            return transferenciaResponseDto is null ? NotFound() : Ok(transferenciaResponseDto);
+            var dto = await _transferenciaService.GetByIdAsync(id, cancellationToken);
+            return dto is null ? NotFound() : Ok(dto);
         }
 
         [HttpPost]
-        [Authorize] // ou AllowAnonymous se será solicitado pelo próprio usuário logado
-        public async Task<ActionResult<TransferenciaResponseDto>> Create([FromBody] TransferenciaCreateDto transferenciaCreateDto, CancellationToken cancellationToken)
+        [Authorize]
+        public async Task<ActionResult<TransferenciaResponseDto>> Create(
+                [FromBody] TransferenciaCreateDto body, CancellationToken ct)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
+
+            // 1) cria localmente (pendente)
+            var dto = await _transferenciaService.CreateAsync(body, ct);
+
+            // 2) dispara PIX-OUT na Vexy (idempotency = transf-{id})
+            var ownerUserId = dto.SolicitanteId; // saque do próprio usuário
+            var idem = $"transf-{dto.Id}";
+
+            var req = new Dtos.VexyBank.PixOutReqDto
             {
-                var transferenciaResponseDto = await transferenciaService.CreateAsync(transferenciaCreateDto, cancellationToken);
-                return CreatedAtAction(nameof(GetById), new { id = transferenciaResponseDto.Id }, transferenciaResponseDto);
+                Amount = (int)Math.Round(dto.ValorSolicitado * 100m, MidpointRounding.AwayFromZero),
+                PixKey = dto.ChavePix ?? body.ChavePix,
+                Description = $"Saque #{dto.Id}",
+                PostbackUrl = null // service monta /v1/vexy/{owner}/pix-out
+            };
+
+            var resp = await _vexyBank.SendPixOutAsync(ownerUserId, req, idem, ct);
+
+            // 2.1) salvar Provider+GatewayId na transferência
+            var e = await _transferenciaRepository.FindByIdAsync(dto.Id, ct);
+            if (e is not null)
+            {
+                e.Provider = PaymentProvider.Vexy;
+                e.GatewayTransactionId = resp.Data.Id; // id de transferência na Vexy
+                await _transferenciaRepository.SaveChangesAsync(ct);
             }
-            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
         }
 
-        // Atualização administrativa (status/aprovação/tipoEnvio/taxas etc)
         [HttpPut("{id:int}")]
         [Authorize] // role Admin?
-        public async Task<ActionResult<TransferenciaResponseDto>> AdminUpdate(int id, [FromBody] TransferenciaAdminUpdateDto transferenciaAdminUpdateDto, CancellationToken cancellationToken)
+        public async Task<ActionResult<TransferenciaResponseDto>> AdminUpdate(int id, [FromBody] TransferenciaAdminUpdateDto body, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
-            var transferenciaResponseDto = await transferenciaService.AdminUpdateAsync(id, transferenciaAdminUpdateDto, cancellationToken);
-            return transferenciaResponseDto is null ? NotFound() : Ok(transferenciaResponseDto);
+            var dto = await _transferenciaService.AdminUpdateAsync(id, body, cancellationToken);
+            return dto is null ? NotFound() : Ok(dto);
         }
 
-        // atalhos opcionais
         [HttpPost("{id:int}/cancelar")]
         [Authorize] // role Admin?
         public async Task<IActionResult> Cancelar(int id, CancellationToken cancellationToken)
         {
-            var ok = await transferenciaService.CancelarAsync(id, cancellationToken);
+            var ok = await _transferenciaService.CancelarAsync(id, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 
         [HttpPost("{id:int}/concluir")]
         [Authorize] // role Admin?
-        public async Task<IActionResult> Concluir(int id, [FromBody] ConcluirBody concluirBody, CancellationToken cancellationToken)
+        public async Task<IActionResult> Concluir(int id, [FromBody] ConcluirBody body, CancellationToken cancellationToken)
         {
-            var ok = await transferenciaService.ConcluirAsync(id, concluirBody.Taxa, concluirBody.ValorFinal, cancellationToken);
+            var ok = await _transferenciaService.ConcluirAsync(id, body.Taxa, body.ValorFinal, cancellationToken);
             return ok ? NoContent() : NotFound();
         }
 

@@ -4,9 +4,9 @@ namespace VersopayBackend.Repositories
 {
     public interface IExtratoRepository
     {
-        Task<Extrato?> GetByClienteIdAsync(int clienteId, CancellationToken cancellationToken);
-        Task<Extrato?> GetByClienteIdNoTrackingAsync(int clienteId, CancellationToken cancellationToken);
-        Task AddAsync(Extrato extrato, CancellationToken cancellationToken);
-        Task SaveChangesAsync(CancellationToken cancellationToken);
+        Task<Extrato?> GetByClienteIdAsync(int clienteId, CancellationToken ct);
+        Task<Extrato?> GetByClienteIdNoTrackingAsync(int clienteId, CancellationToken ct);
+        Task AddAsync(Extrato entity, CancellationToken ct);
+        Task SaveChangesAsync(CancellationToken ct);
     }
 }

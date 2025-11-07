@@ -37,18 +37,26 @@ namespace VersopayDatabase.Migrations
                     b.Property<DateTime?>("AccessTokenExpiresUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ApiKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ApiSecret")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<DateTime?>("AtualizadoEmUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("ClientId")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
 
                     b.Property<string>("ClientSecret")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
+                        .HasMaxLength(600)
+                        .HasColumnType("nvarchar(600)");
 
                     b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("datetime2");
@@ -56,15 +64,23 @@ namespace VersopayDatabase.Migrations
                     b.Property<int>("OwnerUserId")
                         .HasColumnType("int");
 
+                    b.Property<string>("PrevWebhookSignatureSecret")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<int>("Provider")
                         .HasColumnType("int");
+
+                    b.Property<string>("WebhookSignatureSecret")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId", "Provider")
                         .IsUnique();
 
-                    b.ToTable("ProviderCredentials");
+                    b.ToTable("ProviderCredentials", "dbo");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.Antecipacao", b =>
@@ -603,6 +619,9 @@ namespace VersopayDatabase.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -722,6 +741,9 @@ namespace VersopayDatabase.Migrations
                     b.Property<string>("Nome")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
 
                     b.Property<int>("SolicitanteId")
                         .HasColumnType("int");
@@ -905,6 +927,58 @@ namespace VersopayDatabase.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("UsuarioSenhasHistorico");
+                });
+
+            modelBuilder.Entity("VersopayLibrary.Models.VexyBankPixIn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<long?>("AmountCents")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("OwnerUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PaidAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PayerDocument")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("PedidoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PixEmv")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PostbackUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("QrPngBase64")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("VexyBankPixIns");
                 });
 
             modelBuilder.Entity("VersopayLibrary.Models.Webhook", b =>

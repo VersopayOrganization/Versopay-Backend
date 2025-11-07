@@ -5,19 +5,22 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Repositories
 {
-    public sealed class TransferenciaRepository(AppDbContext appDbContext) : ITransferenciaRepository
+
+    public sealed class TransferenciaRepository : ITransferenciaRepository
     {
-        public IQueryable<Transferencia> QueryNoTracking() =>
-            appDbContext.Transferencias.AsNoTracking();
+        private readonly AppDbContext _db;
+        public TransferenciaRepository(AppDbContext db) => _db = db;
 
-        public Task AddAsync(Transferencia transferencia, CancellationToken cancellationToken) =>
-            appDbContext.Transferencias.AddAsync(transferencia, cancellationToken).AsTask();
+        public IQueryable<Transferencia> QueryNoTracking() => _db.Transferencias.AsNoTracking();
 
-        public Task<Transferencia?> FindByIdAsync(int id, CancellationToken cancellationToken) =>
-            appDbContext.Transferencias.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        public Task AddAsync(Transferencia entity, CancellationToken ct) =>
+            _db.Transferencias.AddAsync(entity, ct).AsTask();
 
-        public Task<Transferencia?> GetByIdNoTrackingAsync(int id, CancellationToken cancellationToken) =>
-            appDbContext.Transferencias.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        public Task<Transferencia?> FindByIdAsync(int id, CancellationToken ct) =>
+            _db.Transferencias.FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        public Task<Transferencia?> GetByIdNoTrackingAsync(int id, CancellationToken ct) =>
+            _db.Transferencias.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
 
         public async Task<List<Transferencia>> GetAllAsync(
             int? solicitanteId,
@@ -26,31 +29,24 @@ namespace VersopayBackend.Repositories
             DateTime? dataFim,
             int page,
             int pageSize,
-            CancellationToken cancellationToken)
+            CancellationToken ct)
         {
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 200) pageSize = 20;
 
-            var query = appDbContext.Transferencias.AsNoTracking().AsQueryable();
+            var q = _db.Transferencias.AsNoTracking().AsQueryable();
 
-            if (solicitanteId.HasValue)
-                query = query.Where(x => x.SolicitanteId == solicitanteId.Value);
+            if (solicitanteId.HasValue) q = q.Where(x => x.SolicitanteId == solicitanteId.Value);
+            if (status.HasValue) q = q.Where(x => x.Status == status.Value);
+            if (dataInicio.HasValue) q = q.Where(x => x.DataSolicitacao >= dataInicio.Value);
+            if (dataFim.HasValue) q = q.Where(x => x.DataSolicitacao < dataFim.Value);
 
-            if (status.HasValue)
-                query = query.Where(x => x.Status == status.Value);
-
-            if (dataInicio.HasValue)
-                query = query.Where(x => x.DataSolicitacao >= dataInicio.Value);
-
-            if (dataFim.HasValue)
-                query = query.Where(x => x.DataSolicitacao <= dataFim.Value);
-
-            return await query.OrderByDescending(x => x.DataSolicitacao)
+            return await q.OrderByDescending(x => x.DataSolicitacao)
                           .Skip((page - 1) * pageSize)
                           .Take(pageSize)
-                          .ToListAsync(cancellationToken);
+                          .ToListAsync(ct);
         }
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken) => appDbContext.SaveChangesAsync(cancellationToken);
+        public Task SaveChangesAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
     }
 }

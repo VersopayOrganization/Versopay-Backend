@@ -22,6 +22,8 @@ namespace VersopayDatabase.Data
         public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
         public DbSet<Faturamento> Faturamentos => Set<Faturamento>();
         public DbSet<ProviderCredential> ProviderCredentials => Set<ProviderCredential>();
+        public DbSet<VexyBankPixIn> VexyBankPixIns { get; set; } = default!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -346,11 +348,23 @@ namespace VersopayDatabase.Data
             faturamento.HasIndex(x => new { x.Cpf, x.Cnpj, x.DataInicio, x.DataFim });
 
             var providerCredential = modelBuilder.Entity<ProviderCredential>();
-            providerCredential.ToTable("ProviderCredentials");
+            providerCredential.ToTable("ProviderCredentials", "dbo"); // <-- schema explícito
+
             providerCredential.HasKey(x => x.Id);
-            providerCredential.Property(x => x.ClientId).HasMaxLength(120).IsRequired();
-            providerCredential.Property(x => x.ClientSecret).HasMaxLength(160).IsRequired();
+            providerCredential.Property(x => x.ClientId).HasMaxLength(512).IsRequired();
+            providerCredential.Property(x => x.ClientSecret).HasMaxLength(600).IsRequired();
             providerCredential.Property(x => x.AccessToken).HasMaxLength(600);
+
+            providerCredential.Property(x => x.ApiKey).HasMaxLength(200);
+            providerCredential.Property(x => x.ApiSecret).HasMaxLength(512);
+            providerCredential.Property(x => x.WebhookSignatureSecret).HasMaxLength(256);
+
+            providerCredential.HasOne(x => x.OwnerUser)
+                .WithMany()
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            providerCredential.HasIndex(x => new { x.OwnerUserId, x.Provider }).IsUnique();
 
             providerCredential.HasOne(x => x.OwnerUser)
                 .WithMany()

@@ -32,7 +32,9 @@ namespace VersopayLibrary.Enums
         DepositoPago = 10,     // Versell: PAID_OUT | Vexy: COMPLETED (depósito)
         Chargeback = 11,       // Versell: CHARGEBACK
         SaqueConcluido = 20,   // Vexy: COMPLETED (saque)
-        SaqueRetidoMED = 21    // Vexy: MED/RETIDO
+        SaqueRetidoMED = 21,    // Vexy: MED/RETIDO
+        PagamentoPIX = 22,
+        TransferenciaPIX = 23
     }
 
     public enum ProcessingStatus 

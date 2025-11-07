@@ -6,125 +6,128 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Services
 {
-    public sealed class PedidosService(
-        IPedidoRepository pedidoRepository,
-        IUsuarioRepository usuarioRepository) : IPedidosService
+    public sealed class PedidosService : IPedidosService
     {
-        public async Task<PedidoDto> CreateAsync(PedidoCreateDto pedidoCreateDto, CancellationToken cancellationToken)
-        {
-            // valida vendedor
-            var vendedor = await usuarioRepository.GetByIdNoTrackingAsync(pedidoCreateDto.VendedorId, cancellationToken);
-            if (vendedor is null)
-                throw new ArgumentException("VendedorId inválido.");
+        private readonly IPedidoRepository _pedidoRepository;
+        private readonly IUsuarioRepository _usuarioRepository;
 
-            // parse método
-            if (!Enum.TryParse<MetodoPagamento>(pedidoCreateDto.MetodoPagamento, true, out var metodo))
+        public PedidosService(IPedidoRepository pedidoRepository, IUsuarioRepository usuarioRepository)
+        {
+            _pedidoRepository = pedidoRepository;
+            _usuarioRepository = usuarioRepository;
+        }
+
+        public async Task<PedidoDto> CreateAsync(PedidoCreateDto dto, CancellationToken ct)
+        {
+            var vendedor = await _usuarioRepository.GetByIdNoTrackingAsync(dto.VendedorId, ct)
+                ?? throw new ArgumentException("VendedorId inválido.");
+
+            if (!Enum.TryParse<MetodoPagamento>(dto.MetodoPagamento, true, out var metodo))
                 throw new ArgumentException("MetodoPagamento inválido. Use: Pix, Boleto, Cartao.");
 
-            var pedido = new Pedido
+            var entity = new Pedido
             {
-                VendedorId = pedidoCreateDto.VendedorId,
-                Valor = pedidoCreateDto.Valor,
+                VendedorId = dto.VendedorId,
+                Valor = dto.Valor,
                 MetodoPagamento = metodo,
-                Produto = string.IsNullOrWhiteSpace(pedidoCreateDto.Produto) ? null : pedidoCreateDto.Produto.Trim(),
+                Produto = string.IsNullOrWhiteSpace(dto.Produto) ? null : dto.Produto.Trim(),
                 Status = StatusPedido.Pendente,
                 Criacao = DateTime.UtcNow
             };
 
-            await pedidoRepository.AddAsync(pedido, cancellationToken);
-            await pedidoRepository.SaveChangesAsync(cancellationToken);
+            await _pedidoRepository.AddAsync(entity, ct);
+            await _pedidoRepository.SaveChangesAsync(ct);
 
             return new PedidoDto
             {
-                Id = pedido.Id,
-                Criacao = pedido.Criacao,
-                CriacaoBr = TimeUtils.ToBrazilOffset(pedido.Criacao),
-                DataPagamento = pedido.DataPagamento,
-                MetodoPagamento = pedido.MetodoPagamento.ToString(),
-                Valor = pedido.Valor,
-                VendedorId = pedido.VendedorId,
+                Id = entity.Id,
+                Criacao = entity.Criacao,
+                CriacaoBr = TimeUtils.ToBrazilOffset(entity.Criacao),
+                DataPagamento = entity.DataPagamento,
+                MetodoPagamento = entity.MetodoPagamento.ToString(),
+                Valor = entity.Valor,
+                VendedorId = entity.VendedorId,
                 VendedorNome = vendedor.Nome,
-                Produto = pedido.Produto,
-                Status = pedido.Status
+                Produto = entity.Produto,
+                Status = entity.Status
             };
         }
 
         public async Task<PedidosResponseDto> GetAllAsync(
-            string? status, int? vendedorId, string? metodo,
-            DateTime? dataInicio, DateTime? dataFim, int page, int pageSize,
-            CancellationToken cancellationToken)
+            string? status, int? vendedorId, string? metodo, DateTime? dataInicio, DateTime? dataFim, int page, int pageSize, CancellationToken ct)
         {
             StatusPedido? statusPedido = null;
-            if (!string.IsNullOrWhiteSpace(status) &&
-                Enum.TryParse<StatusPedido>(status, true, out var sParsed)) statusPedido = sParsed;
+            if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<StatusPedido>(status, true, out var sParsed))
+                statusPedido = sParsed;
 
             MetodoPagamento? metodoPagamento = null;
-            if (!string.IsNullOrWhiteSpace(metodo) &&
-                Enum.TryParse<MetodoPagamento>(metodo, true, out var mParsed)) metodoPagamento = mParsed;
+            if (!string.IsNullOrWhiteSpace(metodo) && Enum.TryParse<MetodoPagamento>(metodo, true, out var mParsed))
+                metodoPagamento = mParsed;
 
-            var count = await pedidoRepository.GetCountAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, cancellationToken);
-            var list = await pedidoRepository.GetAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, page, pageSize, cancellationToken);
+            var count = await _pedidoRepository.GetCountAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, ct);
+            var list = await _pedidoRepository.GetAllAsync(statusPedido, vendedorId, metodoPagamento, dataInicio, dataFim, page, pageSize, ct);
+
             return new PedidosResponseDto
             {
-                Pedidos = list.Select(pedidoResponseDto => new PedidoDto
+                Pedidos = list.Select(p => new PedidoDto
                 {
-                    Id = pedidoResponseDto.Id,
-                    Criacao = pedidoResponseDto.Criacao,
-                    CriacaoBr = TimeUtils.ToBrazilOffset(pedidoResponseDto.Criacao),
-                    DataPagamento = pedidoResponseDto.DataPagamento,
-                    MetodoPagamento = pedidoResponseDto.MetodoPagamento.ToString(),
-                    Valor = pedidoResponseDto.Valor,
-                    VendedorId = pedidoResponseDto.VendedorId,
-                    VendedorNome = pedidoResponseDto.Vendedor?.Nome,
-                    Produto = pedidoResponseDto.Produto,
-                    Status = pedidoResponseDto.Status
+                    Id = p.Id,
+                    Criacao = p.Criacao,
+                    CriacaoBr = TimeUtils.ToBrazilOffset(p.Criacao),
+                    DataPagamento = p.DataPagamento,
+                    MetodoPagamento = p.MetodoPagamento.ToString(),
+                    Valor = p.Valor,
+                    VendedorId = p.VendedorId,
+                    VendedorNome = p.Vendedor?.Nome,
+                    Produto = p.Produto,
+                    Status = p.Status
                 }),
                 TotalRegistros = count
             };
         }
 
-        public async Task<PedidoDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
+        public async Task<PedidoDto?> GetByIdAsync(int id, CancellationToken ct)
         {
-            var pedidoResponseDto = await pedidoRepository.GetByIdNoTrackingAsync(id, cancellationToken);
-            if (pedidoResponseDto is null) return null;
+            var p = await _pedidoRepository.GetByIdNoTrackingAsync(id, ct);
+            if (p is null) return null;
 
             return new PedidoDto
             {
-                Id = pedidoResponseDto.Id,
-                Criacao = pedidoResponseDto.Criacao,
-                CriacaoBr = TimeUtils.ToBrazilOffset(pedidoResponseDto.Criacao),
-                DataPagamento = pedidoResponseDto.DataPagamento,
-                MetodoPagamento = pedidoResponseDto.MetodoPagamento.ToString(),
-                Valor = pedidoResponseDto.Valor,
-                VendedorId = pedidoResponseDto.VendedorId,
-                VendedorNome = pedidoResponseDto.Vendedor?.Nome,
-                Produto = pedidoResponseDto.Produto,
-                Status = pedidoResponseDto.Status
+                Id = p.Id,
+                Criacao = p.Criacao,
+                CriacaoBr = TimeUtils.ToBrazilOffset(p.Criacao),
+                DataPagamento = p.DataPagamento,
+                MetodoPagamento = p.MetodoPagamento.ToString(),
+                Valor = p.Valor,
+                VendedorId = p.VendedorId,
+                VendedorNome = p.Vendedor?.Nome,
+                Produto = p.Produto,
+                Status = p.Status
             };
         }
 
-        public async Task<bool> UpdateStatusAsync(int id, PedidoStatusUpdateDto pedidoStatusUpdateDto, CancellationToken cancellationToken)
+        public async Task<bool> UpdateStatusAsync(int id, PedidoStatusUpdateDto dto, CancellationToken ct)
         {
-            var pedido = await pedidoRepository.FindByIdAsync(id, cancellationToken);
-            if (pedido is null) return false;
+            var p = await _pedidoRepository.FindByIdAsync(id, ct);
+            if (p is null) return false;
 
-            pedido.Status = pedidoStatusUpdateDto.Status;
-            if (pedidoStatusUpdateDto.Status == StatusPedido.Aprovado && pedido.DataPagamento is null)
-                pedido.DataPagamento = DateTime.UtcNow;
+            p.Status = dto.Status;
+            if (dto.Status == StatusPedido.Aprovado && p.DataPagamento is null)
+                p.DataPagamento = DateTime.UtcNow;
 
-            await pedidoRepository.SaveChangesAsync(cancellationToken);
+            await _pedidoRepository.SaveChangesAsync(ct);
             return true;
         }
 
-        public async Task<bool> MarcarComoPagoAsync(int id, CancellationToken cancellationToken)
+        public async Task<bool> MarcarComoPagoAsync(int id, CancellationToken ct)
         {
-            var pedido = await pedidoRepository.FindByIdAsync(id, cancellationToken);
-            if (pedido is null) return false;
+            var p = await _pedidoRepository.FindByIdAsync(id, ct);
+            if (p is null) return false;
 
-            pedido.Status = StatusPedido.Aprovado;
-            pedido.DataPagamento = pedido.DataPagamento ?? DateTime.UtcNow;
+            p.Status = StatusPedido.Aprovado;
+            p.DataPagamento = p.DataPagamento ?? DateTime.UtcNow;
 
-            await pedidoRepository.SaveChangesAsync(cancellationToken);
+            await _pedidoRepository.SaveChangesAsync(ct);
             return true;
         }
     }

@@ -6,122 +6,124 @@ using VersopayLibrary.Models;
 
 namespace VersopayBackend.Services
 {
-    public sealed class TransferenciasService(
-       ITransferenciaRepository transferenciaRepository,
-       IUsuarioRepository usuarioRepository,
-       IClock clock
-   ) : ITransferenciasService
+    public sealed class TransferenciasService : ITransferenciasService
     {
-        public async Task<TransferenciaResponseDto> CreateAsync(TransferenciaCreateDto transferenciaCreateDto, CancellationToken cancellationToken)
-        {
-            var usuario = await usuarioRepository.GetByIdNoTrackingAsync(transferenciaCreateDto.SolicitanteId, cancellationToken)
-                    ?? throw new ArgumentException("SolicitanteId inválido.");
+        private readonly ITransferenciaRepository _transferenciaRepository;
+        private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IClock _clock;
 
-            var transferencia = new Transferencia
+        public TransferenciasService(ITransferenciaRepository transferenciaRepository, IUsuarioRepository usuarioRepository, IClock clock)
+        {
+            _transferenciaRepository = transferenciaRepository;
+            _usuarioRepository = usuarioRepository;
+            _clock = clock;
+        }
+
+        public async Task<TransferenciaResponseDto> CreateAsync(TransferenciaCreateDto body, CancellationToken ct)
+        {
+            var usuario = await _usuarioRepository.GetByIdNoTrackingAsync(body.SolicitanteId, ct)
+                ?? throw new ArgumentException("SolicitanteId inválido.");
+
+            var e = new Transferencia
             {
                 SolicitanteId = usuario.Id,
                 Status = StatusTransferencia.PendenteAnalise,
-                DataSolicitacao = clock.UtcNow,
-                ValorSolicitado = transferenciaCreateDto.ValorSolicitado,
+                DataSolicitacao = _clock.UtcNow,
+                ValorSolicitado = body.ValorSolicitado,
                 Nome = usuario.Nome,
                 Empresa = (usuario.TipoCadastro.HasValue && usuario.TipoCadastro.Value == TipoCadastro.PJ) ? usuario.Nome : null,
-                ChavePix = string.IsNullOrWhiteSpace(transferenciaCreateDto.ChavePix) ? null : transferenciaCreateDto.ChavePix.Trim(),
+                ChavePix = string.IsNullOrWhiteSpace(body.ChavePix) ? null : body.ChavePix.Trim(),
                 Aprovacao = AprovacaoManual.Pendente,
                 TipoEnvio = null,
                 Taxa = null,
                 ValorFinal = null,
-                DataCadastro = clock.UtcNow
+                DataCadastro = _clock.UtcNow
             };
 
-            await transferenciaRepository.AddAsync(transferencia, cancellationToken);
-            await transferenciaRepository.SaveChangesAsync(cancellationToken);
+            await _transferenciaRepository.AddAsync(e, ct);
+            await _transferenciaRepository.SaveChangesAsync(ct);
 
-            return Map(transferencia);
+            return Map(e);
         }
 
         public async Task<IEnumerable<TransferenciaResponseDto>> GetAllAsync(
-            int? solicitanteId, StatusTransferencia? status, DateTime? dataInicio, DateTime? dataFim,
-            int page, int pageSize, CancellationToken cancellationToken)
+            int? solicitanteId, StatusTransferencia? status, DateTime? inicio, DateTime? fim, int page, int pageSize, CancellationToken ct)
         {
-            var list = await transferenciaRepository.GetAllAsync(solicitanteId, status, dataInicio, dataFim, page, pageSize, cancellationToken);
+            var list = await _transferenciaRepository.GetAllAsync(solicitanteId, status, inicio, fim, page, pageSize, ct);
             return list.Select(Map);
         }
 
         public async Task<TransferenciaResponseDto?> GetByIdAsync(int id, CancellationToken ct)
         {
-            var e = await transferenciaRepository.GetByIdNoTrackingAsync(id, ct);
+            var e = await _transferenciaRepository.GetByIdNoTrackingAsync(id, ct);
             return e is null ? null : Map(e);
         }
 
-        public async Task<TransferenciaResponseDto?> AdminUpdateAsync(int id, TransferenciaAdminUpdateDto transferenciaAdminUpdateDto, CancellationToken cancellationToken)
+        public async Task<TransferenciaResponseDto?> AdminUpdateAsync(int id, TransferenciaAdminUpdateDto body, CancellationToken ct)
         {
-            var transferencia = await transferenciaRepository.FindByIdAsync(id, cancellationToken);
-            if (transferencia is null) return null;
+            var e = await _transferenciaRepository.FindByIdAsync(id, ct);
+            if (e is null) return null;
 
-            transferencia.Status = transferenciaAdminUpdateDto.Status;
-            transferencia.Aprovacao = transferenciaAdminUpdateDto.Aprovacao;
-            transferencia.TipoEnvio = transferenciaAdminUpdateDto.TipoEnvio;
-            transferencia.Taxa = transferenciaAdminUpdateDto.Taxa;
+            e.Status = body.Status;
+            e.Aprovacao = body.Aprovacao;
+            e.TipoEnvio = body.TipoEnvio;
+            e.Taxa = body.Taxa;
 
-            // se não veio ValorFinal, calcula (solicitado - taxa)
-            if (transferenciaAdminUpdateDto.ValorFinal.HasValue)
-                transferencia.ValorFinal = transferenciaAdminUpdateDto.ValorFinal.Value;
-            else if (transferencia.Taxa.HasValue)
-                transferencia.ValorFinal = transferencia.ValorSolicitado - transferencia.Taxa.Value;
+            if (body.ValorFinal.HasValue) e.ValorFinal = body.ValorFinal.Value;
+            else if (e.Taxa.HasValue) e.ValorFinal = e.ValorSolicitado - e.Taxa.Value;
 
-            // grava DataAprovacao quando aprovar
-            if (transferenciaAdminUpdateDto.Aprovacao == AprovacaoManual.Aprovado && transferencia.DataAprovacao is null)
-                transferencia.DataAprovacao = clock.UtcNow;
-            if (transferenciaAdminUpdateDto.Aprovacao != AprovacaoManual.Aprovado)
-                transferencia.DataAprovacao = null;
+            if (body.Aprovacao == AprovacaoManual.Aprovado && e.DataAprovacao is null)
+                e.DataAprovacao = _clock.UtcNow;
+            if (body.Aprovacao != AprovacaoManual.Aprovado)
+                e.DataAprovacao = null;
 
-            await transferenciaRepository.SaveChangesAsync(cancellationToken);
-            return Map(transferencia);
+            await _transferenciaRepository.SaveChangesAsync(ct);
+            return Map(e);
         }
 
-        public async Task<bool> CancelarAsync(int id, CancellationToken cancellationToken)
+        public async Task<bool> CancelarAsync(int id, CancellationToken ct)
         {
-            var transferencia = await transferenciaRepository.FindByIdAsync(id, cancellationToken);
-            if (transferencia is null) return false;
-            transferencia.Status = StatusTransferencia.Cancelado;
-            transferencia.Aprovacao = AprovacaoManual.Reprovado;
-            await transferenciaRepository.SaveChangesAsync(cancellationToken);
+            var e = await _transferenciaRepository.FindByIdAsync(id, ct);
+            if (e is null) return false;
+            e.Status = StatusTransferencia.Cancelado;
+            e.Aprovacao = AprovacaoManual.Reprovado;
+            await _transferenciaRepository.SaveChangesAsync(ct);
             return true;
         }
 
-        public async Task<bool> ConcluirAsync(int id, decimal? taxa, decimal? valorFinal, CancellationToken cancellationToken)
+        public async Task<bool> ConcluirAsync(int id, decimal? taxa, decimal? valorFinal, CancellationToken ct)
         {
-            var transferencia = await transferenciaRepository.FindByIdAsync(id, cancellationToken);
-            if (transferencia is null) return false;
+            var e = await _transferenciaRepository.FindByIdAsync(id, ct);
+            if (e is null) return false;
 
-            transferencia.Status = StatusTransferencia.Concluido;
-            transferencia.Aprovacao = AprovacaoManual.Aprovado;
-            transferencia.DataAprovacao = transferencia.DataAprovacao ?? clock.UtcNow;
+            e.Status = StatusTransferencia.Concluido;
+            e.Aprovacao = AprovacaoManual.Aprovado;
+            e.DataAprovacao = e.DataAprovacao ?? _clock.UtcNow;
 
-            transferencia.Taxa = taxa;
-            transferencia.ValorFinal = valorFinal ?? (taxa.HasValue ? transferencia.ValorSolicitado - taxa.Value : transferencia.ValorSolicitado);
+            e.Taxa = taxa;
+            e.ValorFinal = valorFinal ?? (taxa.HasValue ? e.ValorSolicitado - taxa.Value : e.ValorSolicitado);
 
-            await transferenciaRepository.SaveChangesAsync(cancellationToken);
+            await _transferenciaRepository.SaveChangesAsync(ct);
             return true;
         }
 
-        private static TransferenciaResponseDto Map(Transferencia transferencia) => new()
+        private static TransferenciaResponseDto Map(Transferencia e) => new()
         {
-            Id = transferencia.Id,
-            SolicitanteId = transferencia.SolicitanteId,
-            Status = transferencia.Status,
-            DataSolicitacao = transferencia.DataSolicitacao,
-            ValorSolicitado = transferencia.ValorSolicitado,
-            Nome = transferencia.Nome,
-            Empresa = transferencia.Empresa,
-            ChavePix = transferencia.ChavePix,
-            Aprovacao = transferencia.Aprovacao,
-            TipoEnvio = transferencia.TipoEnvio,
-            Taxa = transferencia.Taxa,
-            ValorFinal = transferencia.ValorFinal,
-            DataCadastro = transferencia.DataCadastro,
-            DataAprovacao = transferencia.DataAprovacao,
-            MetodoPagamento = transferencia.MetodoPagamento
+            Id = e.Id,
+            SolicitanteId = e.SolicitanteId,
+            Status = e.Status,
+            DataSolicitacao = e.DataSolicitacao,
+            ValorSolicitado = e.ValorSolicitado,
+            Nome = e.Nome,
+            Empresa = e.Empresa,
+            ChavePix = e.ChavePix,
+            Aprovacao = e.Aprovacao,
+            TipoEnvio = e.TipoEnvio,
+            Taxa = e.Taxa,
+            ValorFinal = e.ValorFinal,
+            DataCadastro = e.DataCadastro,
+            DataAprovacao = e.DataAprovacao,
+            MetodoPagamento = e.MetodoPagamento
         };
     }
 }
