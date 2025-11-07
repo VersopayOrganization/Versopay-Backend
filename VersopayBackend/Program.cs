@@ -94,19 +94,19 @@ const string CorsDefault = "CorsDefault";
 
 builder.Services.AddCors(options =>
 {
-    //options.AddPolicy(CorsDefault, p =>
-    //    p
-    //    .WithOrigins(
-    //        // PRODUÇÃO
-    //        "https://versopay.com.br",
-    //        "https://www.versopay.com.br",
-    //        // DEV (local)
-    //        "http://localhost:4200", "https://localhost:4200",
-    //        "http://127.0.0.1:4200", "https://127.0.0.1:4200",
-    //        "http://localhost:4000", "https://localhost:4000"
-    //    )
-    //    .AllowAnyHeader()
-    //    .AllowAnyMethod()
+    options.AddPolicy(CorsDefault, p =>
+        p
+        .WithOrigins(
+            // PRODUÇÃO
+            "https://versopay.com.br",
+            "https://www.versopay.com.br",
+            // DEV (local)
+            "http://localhost:4200", "https://localhost:4200",
+            "http://127.0.0.1:4200", "https://127.0.0.1:4200",
+            "http://localhost:4000", "https://localhost:4000"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod());
 
     options.AddPolicy("CorsDev", p =>
         p.WithOrigins(
