@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
 using VersopayBackend.Dtos;
+using VersopayBackend.Dtos.Common;
 using VersopayBackend.Dtos.VexyBank;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.VexyClient.PixIn;
@@ -29,6 +30,9 @@ namespace VersopayBackend.Controllers
         private readonly IPedidoMatchRepository _pedidoMatchRepo;
         private readonly ITransferenciaMatchRepository _transferMatchRepo;
         private readonly ITransferenciaRepository _transferRepo;
+        private readonly IVendorWebhookHandlerFactory _handlerFactory;
+        private readonly IPedidosService _pedidosService;
+        private readonly ITransferenciasService _transferenciasService;
 
         public WebhooksController(
         ILogger<WebhooksController> logger,
@@ -37,7 +41,10 @@ namespace VersopayBackend.Controllers
         IPedidoRepository pedidoRepo,
         IPedidoMatchRepository pedidoMatchRepo,
         ITransferenciaMatchRepository transferMatchRepo,
-        ITransferenciaRepository transferRepo)
+        ITransferenciaRepository transferRepo,
+        IVendorWebhookHandlerFactory handlerFactory,
+        IPedidosService pedidosService,                 // <= add
+        ITransferenciasService transferenciasService)    // <= add (opcional, para pix-out))
         {
             _logger = logger;
             _inboundLogRepo = inboundLogRepo;
@@ -46,6 +53,9 @@ namespace VersopayBackend.Controllers
             _pedidoMatchRepo = pedidoMatchRepo;
             _transferMatchRepo = transferMatchRepo;
             _transferRepo = transferRepo;
+            _handlerFactory = handlerFactory;
+            _pedidosService = pedidosService;               // <= add
+            _transferenciasService = transferenciasService; // <= add
         }
 
         // ============================
@@ -207,255 +217,45 @@ namespace VersopayBackend.Controllers
         /// <summary>VexyBank – webhook por owner (pix-in | pix-out)</summary>
         /// Ex.: POST /api/webhooks/v1/vexy/{ownerUserId}/{channel}
         /// channel: "pix-in" ou "pix-out"
-        [HttpPost("v1/vexy/{ownerUserId:int}/{channel}")]
+        [HttpPost("v1/{provider}/{ownerUserId:int}/{channel}")]
         [AllowAnonymous]
         [Consumes("application/json")]
-        public async Task<IActionResult> InboundVexyV1(
+        public async Task<IActionResult> InboundGeneric(
+            [FromRoute] string provider,
             [FromRoute] int ownerUserId,
             [FromRoute] string channel,
-            [FromBody] VexyWebhookEnvelope payload,
             CancellationToken ct)
         {
-            if (payload is null) return BadRequest("Payload obrigatório.");
-
-            var sourceIp = HttpContext.Connection?.RemoteIpAddress?.ToString() ?? "";
+            // 1) raw body + headers/ip
+            HttpContext.Request.EnableBuffering();
+            string rawBody;
+            using (var reader = new StreamReader(Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true))
+            {
+                rawBody = await reader.ReadToEndAsync();
+                Request.Body.Position = 0;
+            }
             var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
+            var ip = HttpContext.Connection?.RemoteIpAddress?.ToString() ?? "";
 
-            // === Idempotência (dedupe) ===
-            var eventKey = $"vexy:{ownerUserId}:{payload.Type}:{payload.Event}:{payload.Id}".ToLowerInvariant();
+            // 2) resolve handler pelo provider
+            var handler = _handlerFactory.Resolve(provider);
+
+            // 3) verifica assinatura (se aplicável para o handler)
+            var okSig = await handler.VerifySignatureAsync(ownerUserId, rawBody, headers, ct);
+            if (!okSig) return Unauthorized();
+
+            // 4) dedupe por event key
+            var eventKey = handler.BuildEventKey(rawBody, headers).ToLowerInvariant();
             if (await _inboundLogRepo.ExistsByEventKeyAsync(eventKey, ct))
-            {
-                _logger.LogInformation("Webhook Vexy duplicado ignorado: {EventKey}", eventKey);
                 return Ok(new { ok = true, duplicated = true });
-            }
 
-            // === Log base ===
-            var baseLog = new InboundWebhookLog
-            {
-                Provedor = ProvedorWebhook.VexyPayments,
-                Evento = payload.Type?.Equals("transaction", StringComparison.OrdinalIgnoreCase) == true
-                            ? WebhookEvento.PagamentoPIX
-                            : WebhookEvento.TransferenciaPIX,
-                EventKey = eventKey,
-                SourceIp = sourceIp,
-                HeadersJson = JsonSerializer.Serialize(headers),
-                PayloadJson = JsonSerializer.Serialize(payload),
-                ReceivedAtUtc = DateTime.UtcNow,
-                ProcessedAtUtc = DateTime.UtcNow,
-                ProcessingStatus = ProcessingStatus.Success,
-                TransactionId = payload.Transaction?.Id ?? payload.Transfer?.Id,
-                Status = payload.Transaction?.Status ?? payload.Transfer?.Status,
-                DataEventoUtc = DateTime.UtcNow
-            };
-            await _inboundLogRepo.AddAsync(baseLog, ct);
+            // 5) processa (handler cria/atualiza Pedido/Transferência e devolve o log pronto)
+            var log = await handler.ProcessAsync(ownerUserId, channel, rawBody, headers, ip, ct);
+
+            await _inboundLogRepo.AddAsync(log, ct);
             await _inboundLogRepo.SaveChangesAsync(ct);
-
-            // ======================================================================================
-            // PIX-IN (transaction) -> Atualiza VexyBankPixIn e Pedido; Auto-cria se não existir
-            // ======================================================================================
-            if (payload.Type?.Equals("transaction", StringComparison.OrdinalIgnoreCase) == true &&
-                payload.Transaction is not null &&
-                !string.IsNullOrWhiteSpace(payload.Transaction.Id))
-            {
-                var extId = payload.Transaction.Id!;
-                var status = payload.Transaction.Status?.ToLowerInvariant();
-
-                // 🔧 Seus DTOs têm 'Amount' (int). Assumo que é em centavos.
-                var amountCents = (long)payload.Transaction.Amount;
-                var amount = amountCents / 100m;
-
-                // 🔧 Seus DTOs não têm 'Description'; uso um fallback simples.
-                var descricao = $"PIX {extId}";
-
-                var payerDoc = payload.Transaction.Pix?.PayerInfo?.Document
-                               ?? payload.Transaction.PayerDocument;
-
-                // 1) Atualiza/Cria o registro local do PIX-IN
-                var localPix = await _pixInRepo.FindByExternalIdAsync(ownerUserId, extId, ct);
-                if (localPix is null)
-                {
-                    localPix = new VexyBankPixIn
-                    {
-                        OwnerUserId = ownerUserId,
-                        ExternalId = extId,
-                        Status = status,
-                        AmountCents = amountCents,
-                        PayerDocument = payerDoc,
-                        PixEmv = null,
-                        QrPngBase64 = null,
-                        UpdatedAtUtc = DateTime.UtcNow
-                    };
-                    await _pixInRepo.AddAsync(localPix, ct);
-                    await _pixInRepo.SaveChangesAsync(ct);
-                }
-                else
-                {
-                    localPix.Status = status;
-                    if (!string.IsNullOrWhiteSpace(payerDoc))
-                        localPix.PayerDocument = payerDoc;
-
-                    if (status is "paid" or "completed")
-                        localPix.PaidAtUtc = DateTime.UtcNow;
-
-                    localPix.UpdatedAtUtc = DateTime.UtcNow;
-                    await _pixInRepo.SaveChangesAsync(ct);
-                }
-
-                // 2) Atualiza ou cria o Pedido
-                bool pedidoAtualizadoOuCriado = false;
-
-                if (localPix.PedidoId.HasValue && localPix.PedidoId.Value > 0)
-                {
-                    var ped = await _pedidoRepo.FindByIdAsync(localPix.PedidoId.Value, ct);
-                    if (ped is not null)
-                    {
-                        ped.Provider = PaymentProvider.Vexy;
-                        ped.GatewayTransactionId ??= extId;
-
-                        if (status is "paid" or "completed")
-                        {
-                            ped.Status = StatusPedido.Aprovado;
-                            ped.DataPagamento ??= DateTime.UtcNow;
-                        }
-                        else if (status is "expired")
-                        {
-                            ped.Status = StatusPedido.Expirado;
-                        }
-                        else if (status is "canceled")
-                        {
-                            ped.Status = StatusPedido.Cancelado;
-                        }
-
-                        await _pedidoRepo.SaveChangesAsync(ct);
-                        pedidoAtualizadoOuCriado = true;
-                    }
-                }
-
-                if (!pedidoAtualizadoOuCriado)
-                {
-                    var ped = await _pedidoMatchRepo.GetByGatewayIdAsync(extId, ct);
-                    if (ped is not null)
-                    {
-                        ped.Provider = PaymentProvider.Vexy;
-
-                        if (status is "paid" or "completed")
-                        {
-                            ped.Status = StatusPedido.Aprovado;
-                            ped.DataPagamento ??= DateTime.UtcNow;
-                        }
-                        else if (status is "expired")
-                        {
-                            ped.Status = StatusPedido.Expirado;
-                        }
-                        else if (status is "canceled")
-                        {
-                            ped.Status = StatusPedido.Cancelado;
-                        }
-
-                        await _pedidoRepo.SaveChangesAsync(ct);
-                        pedidoAtualizadoOuCriado = true;
-
-                        if (!localPix.PedidoId.HasValue || localPix.PedidoId.Value <= 0)
-                        {
-                            localPix.PedidoId = ped.Id;
-                            localPix.UpdatedAtUtc = DateTime.UtcNow;
-                            await _pixInRepo.SaveChangesAsync(ct);
-                        }
-                    }
-                }
-
-                if (!pedidoAtualizadoOuCriado)
-                {
-                    var novo = new Pedido
-                    {
-                        VendedorId = ownerUserId,
-                        Valor = amount,
-                        MetodoPagamento = MetodoPagamento.Pix,
-                        Produto = descricao,
-                        Status = (status is "paid" or "completed") ? StatusPedido.Aprovado : StatusPedido.Pendente,
-                        DataPagamento = (status is "paid" or "completed") ? DateTime.UtcNow : null,
-                        Provider = PaymentProvider.Vexy,
-                        GatewayTransactionId = extId,
-                        Criacao = DateTime.UtcNow
-                    };
-
-                    await _pedidoRepo.AddAsync(novo, ct);
-                    await _pedidoRepo.SaveChangesAsync(ct);
-
-                    localPix.PedidoId = novo.Id;
-                    localPix.UpdatedAtUtc = DateTime.UtcNow;
-                    await _pixInRepo.SaveChangesAsync(ct);
-                }
-            }
-
-            // ======================================================================================
-            // PIX-OUT (transfer) -> Atualiza Transferencia; Auto-cria se não existir
-            // ======================================================================================
-            if (payload.Type?.Equals("transfer", StringComparison.OrdinalIgnoreCase) == true &&
-                payload.Transfer is not null &&
-                !string.IsNullOrWhiteSpace(payload.Transfer.Id))
-            {
-                var gwId = payload.Transfer.Id!;
-                var s = payload.Transfer.Status?.ToLowerInvariant();
-
-                // 🔧 Seus DTOs têm 'Amount' (int). Assumo centavos também.
-                var amountCents = payload.Transfer.AmountInCents;
-                var amount = amountCents / 100m;
-
-                var t = await _transferMatchRepo.GetByGatewayIdAsync(gwId, ct);
-                if (t is not null)
-                {
-                    t.Provider = PaymentProvider.Vexy;
-
-                    if (s is "completed" or "paid")
-                    {
-                        t.Status = StatusTransferencia.Concluido;
-                        t.Aprovacao = AprovacaoManual.Aprovado;
-                        t.DataAprovacao ??= DateTime.UtcNow;
-                    }
-                    else if (s is "med" or "held")
-                    {
-                        t.Status = StatusTransferencia.RetidoMed;
-                    }
-                    else if (s is "canceled" or "failed")
-                    {
-                        t.Status = StatusTransferencia.Cancelado;
-                        t.Aprovacao = AprovacaoManual.Reprovado;
-                    }
-
-                    await _transferRepo.SaveChangesAsync(ct);
-                }
-                else
-                {
-                    // Ingestão por webhook: cria Transferência se não existir
-                    var nova = new Transferencia
-                    {
-                        SolicitanteId = ownerUserId,
-                        Status = s is "completed" or "paid" ? StatusTransferencia.Concluido :
-                                               s is "canceled" or "failed" ? StatusTransferencia.Cancelado :
-                                               StatusTransferencia.PendenteAnalise,
-                        Aprovacao = s is "completed" or "paid" ? AprovacaoManual.Aprovado :
-                                               s is "canceled" or "failed" ? AprovacaoManual.Reprovado :
-                                               AprovacaoManual.Pendente,
-                        DataSolicitacao = DateTime.UtcNow,
-                        DataAprovacao = s is "completed" or "paid" ? DateTime.UtcNow : null,
-                        ValorSolicitado = amount,
-                        // 🔧 Seus DTOs não têm RecipientName nem PixKey
-                        Nome = null,
-                        Empresa = null,
-                        ChavePix = null,
-                        Provider = PaymentProvider.Vexy,
-                        GatewayTransactionId = gwId,
-                        DataCadastro = DateTime.UtcNow
-                    };
-
-                    await _transferRepo.AddAsync(nova, ct);
-                    await _transferRepo.SaveChangesAsync(ct);
-                }
-            }
 
             return Ok(new { ok = true });
         }
-
     }
 }

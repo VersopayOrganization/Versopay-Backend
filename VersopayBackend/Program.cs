@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using VersopayBackend.Auth;
 using VersopayBackend.Common;
+using VersopayBackend.Dtos.Common;
 using VersopayBackend.Options;
 using VersopayBackend.Repositories;
 using VersopayBackend.Repositories.NovaSenha;
@@ -20,6 +21,7 @@ using VersopayBackend.Services.KycKyb;
 using VersopayBackend.Services.KycKybFeature;
 using VersopayBackend.Services.Taxas;
 using VersopayBackend.Services.Vexy;
+using VersopayBackend.Webhooks;
 using VersopayDatabase.Data;
 using VersopayLibrary.Enums;
 using VersopayLibrary.Models;
@@ -188,6 +190,11 @@ builder.Services.AddScoped<IVexyBankClient, VexyBankClient>();
 builder.Services.AddScoped<IVexyBankService, VexyBankService>();
 
 builder.Services.AddScoped<IVexyBankPixInRepository, VexyBankPixInRepository>();
+
+builder.Services.AddScoped<VexyVendorWebhookHandler>();
+builder.Services.AddScoped<VersellVendorWebhookHandler>();
+
+builder.Services.AddScoped<IVendorWebhookHandlerFactory, VendorWebhookHandlerFactory>();
 
 // utilitários
 builder.Services.AddSingleton<IClock, SystemClock>();
